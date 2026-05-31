@@ -1,0 +1,1899 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Lumina OS</title>
+  <style>
+    :root {
+      --taskbar-height: 50px;
+      --glass-bg: rgba(255, 255, 255, 0.45);
+      --glass-blur: blur(25px);
+      --glass-border: 1px solid rgba(255,255,255,0.7);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 100vw; height: 100vh; overflow: hidden;
+      font-family: 'Segoe UI Variable', 'Segoe UI', Tahoma, sans-serif;
+      background: black; user-select: none;
+    }
+    .wallpaper {
+      position: fixed; top:0; left:0; width:100%; height:100%;
+      background: url('../Wallpaper/windows_wallpaper.jpg') center/cover no-repeat;
+      z-index: 0;
+    }
+    .lockscreen {
+      position: fixed; top:0; left:0; width:100%; height:100%;
+      background: rgba(0,0,0,0.5); backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      z-index: 9999; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      transition: opacity 0.5s, transform 0.5s;
+      color: white; text-shadow: 0 2px 5px black;
+    }
+    .lockscreen.hidden { opacity: 0; transform: scale(1.05); pointer-events: none; }
+    .lock-time { font-size: 5rem; font-weight: 300; margin-bottom: 0.2em; }
+    .lock-date { font-size: 1.8rem; font-weight: 300; margin-bottom: 2em; }
+    .lock-hint { font-size: 1rem; opacity: 0.8; cursor: pointer; }
+
+    .desktop-icons {
+      position: fixed; top: 20px; left: 20px; z-index: 10;
+      display: grid;
+      grid-template-columns: repeat(3, 80px);
+      gap: 18px 12px;
+    }
+    .desktop-icon {
+      display: flex; flex-direction: column; align-items: center;
+      width: 75px; text-align: center; cursor: pointer;
+      color: white; text-shadow: 0 1px 4px black; font-size: 12px;
+    }
+    .desktop-icon .icon-img {
+      width: 48px; height: 48px; margin-bottom: 4px;
+      background: rgba(255,255,255,0.3); backdrop-filter: blur(10px);
+      border-radius: 12px; display: flex; align-items: center;
+      justify-content: center; font-size: 26px;
+    }
+    .taskbar {
+      position: fixed; bottom:0; left:0; right:0; height:var(--taskbar-height);
+      background: var(--glass-bg); backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border-top: var(--glass-border);
+      display: flex; align-items: center; padding: 0 12px;
+      z-index: 200; box-shadow: 0 -2px 15px rgba(0,0,0,0.15);
+    }
+    .start-btn {
+      width: 40px; height: 40px; border-radius: 10px;
+      background: rgba(255,255,255,0.3); display: flex;
+      align-items: center; justify-content: center;
+      margin-right: 10px; cursor: pointer; border: var(--glass-border);
+    }
+    .start-btn img { width: 24px; height: 24px; }
+    .taskbar-icons {
+      display: flex; gap: 6px; flex: 1; align-items: center;
+      overflow-x: auto;
+    }
+    .taskbar-icon {
+      width: 40px; height: 40px; border-radius: 10px;
+      background: rgba(255,255,255,0.3); display: flex;
+      align-items: center; justify-content: center;
+      cursor: pointer; transition: 0.2s; position: relative;
+    }
+    .taskbar-icon.active { background: rgba(255,255,255,0.55); }
+    .taskbar-icon .indicator {
+      position: absolute; bottom: 3px; width: 6px; height: 6px;
+      border-radius: 50%; background: #0078d4;
+      display: none;
+    }
+    .taskbar-icon.running .indicator { display: block; }
+    .clock-area {
+      color: white; text-shadow: 0 1px 3px black;
+      font-weight: 500; margin-left: auto; display: flex; align-items: center; gap: 12px;
+    }
+    .time { font-size: 14px; } .date { font-size: 11px; }
+
+    .tray-icon { font-size: 18px; cursor: pointer; opacity: 0.9; transition: 0.2s; }
+    .tray-icon:hover { opacity: 1; }
+
+    .start-menu {
+      position: fixed; left:0; bottom:var(--taskbar-height);
+      width:640px; height:520px; background: rgba(255,255,255,0.85);
+      backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px);
+      border-top-right-radius: 12px; border-right: var(--glass-border);
+      border-top: var(--glass-border); box-shadow: 0 -5px 30px rgba(0,0,0,0.2);
+      transform: translateY(100%); transition: transform 0.35s cubic-bezier(0.4,0,0.2,1);
+      z-index: 150; display: flex;
+    }
+    .start-menu.open { transform: translateY(0); }
+    .menu-left {
+      width:40%; background: rgba(240,240,240,0.7); padding:15px;
+      display:flex; flex-direction:column; gap:8px;
+      overflow-y: auto;
+    }
+    .app-item {
+      display:flex; align-items:center; gap:10px; padding:10px;
+      border-radius:8px; cursor:pointer; background: rgba(255,255,255,0.6);
+      font-size:14px; font-weight:500;
+    }
+    .menu-right { width:60%; padding:15px; display:flex; flex-direction:column; gap:15px; }
+
+    .weather-content { display:flex; align-items:center; gap:10px; }
+
+    .window {
+      position: absolute; min-width: 400px; min-height: 280px;
+      background: rgba(255,255,255,0.35); backdrop-filter: blur(30px);
+      -webkit-backdrop-filter: blur(30px);
+      border: var(--glass-border); border-radius: 16px;
+      box-shadow: 0 15px 40px rgba(0,0,0,0.4);
+      display: flex; flex-direction: column;
+      z-index: 120; overflow: hidden;
+      transition: opacity 0.2s, transform 0.3s cubic-bezier(0.2,0.8,0.2,1);
+      will-change: transform, width, height;
+    }
+    .window.active { opacity: 1; transform: scale(1); }
+    .window.minimized {
+      opacity: 0; transform: translateY(100vh) scale(0.5); pointer-events: none;
+    }
+    .window-header {
+      display: flex; align-items: center; padding: 12px 16px;
+      background: rgba(255,255,255,0.25); cursor: move;
+      border-bottom: var(--glass-border); user-select: none;
+    }
+    .window-title { flex:1; font-weight:600; color:white; text-shadow:0 1px 2px black; }
+    .window-controls { display: flex; gap: 8px; }
+    .win-btn {
+      width: 28px; height: 28px; border-radius: 8px; border: none;
+      background: rgba(255,255,255,0.5); backdrop-filter: blur(10px);
+      cursor: pointer; display: flex; align-items: center;
+      justify-content: center; font-size: 16px; color: #333;
+    }
+    .window-body { flex:1; padding: 16px; overflow: auto; }
+
+    .resize-handle { position: absolute; z-index: 10; }
+    .resize-handle.top { top:-5px; left:0; right:0; height:10px; cursor:n-resize; }
+    .resize-handle.bottom { bottom:-5px; left:0; right:0; height:10px; cursor:s-resize; }
+    .resize-handle.left { left:-5px; top:0; bottom:0; width:10px; cursor:w-resize; }
+    .resize-handle.right { right:-5px; top:0; bottom:0; width:10px; cursor:e-resize; }
+    .resize-handle.corner { width: 14px; height: 14px; position: absolute; }
+    .resize-handle.tl { top:-5px; left:-5px; cursor:nw-resize; }
+    .resize-handle.tr { top:-5px; right:-5px; cursor:ne-resize; }
+    .resize-handle.bl { bottom:-5px; left:-5px; cursor:sw-resize; }
+    .resize-handle.br { bottom:-5px; right:-5px; cursor:se-resize; }
+
+    .overlay { position:fixed; top:0;left:0;width:100%;height:100%;z-index:149; display:none; }
+    .overlay.active { display:block; }
+
+    .glass-btn {
+      padding: 8px 16px; border-radius: 10px; border: var(--glass-border);
+      background: rgba(255,255,255,0.5); backdrop-filter: blur(10px);
+      cursor: pointer; font-size: 14px; transition: 0.2s;
+    }
+    .glass-btn:hover { background: rgba(255,255,255,0.7); }
+    .glass-btn.active { background: rgba(255,255,255,0.8); font-weight: bold; }
+    .glass-input {
+      padding: 8px 12px; border-radius: 10px; border: var(--glass-border);
+      background: rgba(255,255,255,0.5); backdrop-filter: blur(10px);
+      outline: none; color: #333;
+    }
+
+    .calc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .calc-btn {
+      padding: 16px 8px; border-radius: 12px; border: var(--glass-border);
+      background: rgba(255,255,255,0.5); backdrop-filter: blur(10px);
+      font-size: 18px; cursor: pointer; transition: 0.1s;
+    }
+    .calc-btn:active { background: rgba(255,255,255,0.8); transform: scale(0.95); }
+    .calc-display {
+      background: rgba(0,0,0,0.1); padding: 12px; border-radius: 12px;
+      text-align: right; font-size: 28px; font-weight: bold;
+      margin-bottom: 10px; color: white; text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    }
+
+    .browser-toolbar { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+    .browser-webview { flex:1; border-radius: 10px; background: white; }
+
+    .theme-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .theme-card {
+      background: rgba(255,255,255,0.4); backdrop-filter: blur(15px);
+      border-radius: 12px; padding: 12px; cursor: pointer;
+      transition: 0.2s; border: 2px solid transparent;
+    }
+    .theme-card:hover { background: rgba(255,255,255,0.6); }
+    .theme-card.active { border-color: #0078d4; }
+    .theme-preview {
+      width: 100%; height: 70px; border-radius: 8px;
+      background-size: cover; background-position: center;
+      margin-bottom: 6px; border: var(--glass-border);
+    }
+    .theme-label { font-size: 13px; font-weight: 500; }
+    .system-info { line-height: 1.8; }
+    .settings-tabs { display: flex; gap: 8px; margin-bottom: 15px; }
+
+    .explorer-container { display: flex; gap: 10px; height: 100%; }
+    .explorer-sidebar {
+      width: 200px; background: rgba(255,255,255,0.3); backdrop-filter: blur(15px);
+      border-radius: 10px; padding: 10px;
+    }
+    .explorer-content {
+      flex:1; background: rgba(255,255,255,0.3); backdrop-filter: blur(15px);
+      border-radius: 10px; padding: 10px; overflow-y: auto;
+    }
+    .my-pc-info { line-height: 1.8; }
+
+    .terminal-body {
+      background: #1e1e1e; color: #0f0; font-family: 'Consolas', 'Courier New', monospace;
+      padding: 10px; border-radius: 10px; height: 100%; overflow-y: auto;
+    }
+    .terminal-input-line { display: flex; align-items: center; }
+    .terminal-prompt { color: #0f0; margin-right: 5px; }
+    .terminal-input {
+      background: transparent; border: none; outline: none; color: #0f0;
+      flex: 1; font-family: inherit; font-size: 14px;
+    }
+
+    .calendar-grid {
+      display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
+      text-align: center;
+    }
+    .calendar-cell {
+      padding: 10px; border-radius: 6px; cursor: pointer;
+      background: rgba(255,255,255,0.3); backdrop-filter: blur(5px);
+    }
+    .calendar-cell:hover { background: rgba(255,255,255,0.5); }
+    .calendar-cell.today { border: 2px solid #0078d4; }
+    .calendar-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
+    .event-indicator { width: 6px; height: 6px; background: #ff5555; border-radius: 50%; margin: 2px auto 0; }
+
+    .store-tabs { display: flex; gap: 8px; margin-bottom: 15px; }
+    .store-section { display: none; }
+    .store-section.active { display: block; }
+    .app-card {
+      background: rgba(255,255,255,0.2); backdrop-filter: blur(10px);
+      border-radius: 10px; padding: 10px; margin-bottom: 8px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .app-card img { width: 40px; height: 40px; border-radius: 8px; }
+    .progress-bar {
+      height: 8px; background: #0078d4; border-radius: 4px; margin-top: 4px;
+      transition: width 0.2s;
+    }
+
+    .download-toast {
+      position: fixed; right: 20px; bottom: calc(var(--taskbar-height) + 20px);
+      width: 300px; background: rgba(255,255,255,0.6); backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: var(--glass-border); border-radius: 16px;
+      padding: 16px; color: #333; box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+      z-index: 250;
+      visibility: hidden; opacity: 0;
+      transition: visibility 0s 0.35s, opacity 0.35s, transform 0.35s cubic-bezier(0.4,0,0.2,1);
+      transform: translateY(120%);
+    }
+    .download-toast.show {
+      visibility: visible; opacity: 1;
+      transition: visibility 0s, opacity 0.35s, transform 0.35s cubic-bezier(0.4,0,0.2,1);
+      transform: translateY(0);
+    }
+    .toast-progress-bar {
+      height: 8px; background: #0078d4; border-radius: 4px; margin-top: 8px;
+      width: 0%; transition: width 0.3s linear;
+    }
+    .toast-title { font-weight: bold; margin-bottom: 4px; }
+    .toast-status { font-size: 13px; margin-top: 4px; }
+
+    .virus-warning-modal {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      background: rgba(255,255,255,0.35); backdrop-filter: blur(30px);
+      -webkit-backdrop-filter: blur(30px);
+      border: var(--glass-border); border-radius: 16px;
+      box-shadow: 0 15px 40px rgba(0,0,0,0.4);
+      padding: 24px; color: white; z-index: 9999;
+      text-align: center; min-width: 350px;
+    }
+    .virus-warning-modal button { margin: 12px 8px 0 8px; }
+
+    .quick-panel {
+      position: fixed; right: 20px; bottom: var(--taskbar-height);
+      width: 300px; background: rgba(255,255,255,0.85); backdrop-filter: blur(40px);
+      -webkit-backdrop-filter: blur(40px);
+      border: var(--glass-border); border-radius: 12px;
+      box-shadow: 0 5px 30px rgba(0,0,0,0.2);
+      transform: translateY(120%); transition: transform 0.35s cubic-bezier(0.4,0,0.2,1);
+      z-index: 160; padding: 16px; color: #333;
+    }
+    .quick-panel.open { transform: translateY(0); }
+
+    .wifi-list { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+    .wifi-item {
+      background: rgba(255,255,255,0.6); border-radius: 8px; padding: 10px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+
+    /* Стили для модального окна кастомизации (тем) */
+    .custom-modal {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 500px; max-height: 80vh; overflow-y: auto;
+      background: rgba(255,255,255,0.35); backdrop-filter: blur(30px);
+      -webkit-backdrop-filter: blur(30px);
+      border: var(--glass-border); border-radius: 16px;
+      box-shadow: 0 15px 40px rgba(0,0,0,0.4);
+      z-index: 300; padding: 20px; color: white;
+    }
+    .custom-modal h2 { margin-bottom: 15px; }
+    .custom-row { margin-bottom: 12px; }
+    .custom-preview {
+      width: 100px; height: 60px; background-size: cover;
+      background-position: center; border-radius: 8px; margin-top: 5px;
+    }
+    .btn-white {
+      background: white; color: black; border: none;
+      padding: 10px 20px; border-radius: 8px; font-weight: bold;
+      cursor: pointer; margin-right: 10px;
+    }
+    .btn-close {
+      background: rgba(255,255,255,0.3); color: white; border: none;
+      padding: 10px 20px; border-radius: 8px; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+<div class="wallpaper" id="wallpaper"></div>
+
+<div class="lockscreen" id="lockscreen">
+  <div class="lock-time" id="lockTime">00:00</div>
+  <div class="lock-date" id="lockDate">1 января 2026</div>
+  <div class="lock-hint" id="lockHint">Нажмите Enter или кликните, чтобы войти</div>
+</div>
+
+<div class="desktop-icons" id="desktopIcons">
+  <div class="desktop-icon" data-app="calculator"><div class="icon-img">🧮</div><span class="icon-label">Калькулятор</span></div>
+  <div class="desktop-icon" data-app="browser"><div class="icon-img">🌐</div><span class="icon-label">Браузер</span></div>
+  <div class="desktop-icon" data-app="notepad"><div class="icon-img">📝</div><span class="icon-label">Блокнот</span></div>
+  <div class="desktop-icon" data-app="notes"><div class="icon-img">📒</div><span class="icon-label">Записи</span></div>
+  <div class="desktop-icon" data-app="settings"><div class="icon-img">⚙️</div><span class="icon-label">Настройки</span></div>
+  <div class="desktop-icon" data-app="paint"><div class="icon-img">🎨</div><span class="icon-label">Paint</span></div>
+  <div class="desktop-icon" data-app="explorer"><div class="icon-img">📁</div><span class="icon-label">Проводник</span></div>
+  <div class="desktop-icon" data-app="terminal"><div class="icon-img">⬛</div><span class="icon-label">Терминал</span></div>
+  <div class="desktop-icon" data-app="calendar"><div class="icon-img">📅</div><span class="icon-label">Календарь</span></div>
+  <div class="desktop-icon" data-app="google"><div class="icon-img">🔍</div><span class="icon-label">Google</span></div>
+  <div class="desktop-icon" data-app="maps"><div class="icon-img">🗺️</div><span class="icon-label">Карты</span></div>
+  <div class="desktop-icon" data-app="itchio"><div class="icon-img">🎮</div><span class="icon-label">itch.io</span></div>
+  <div class="desktop-icon" data-app="store"><div class="icon-img">🛒</div><span class="icon-label">Lumina App</span></div>
+</div>
+
+<div class="taskbar" id="taskbar">
+  <div class="start-btn" id="startBtn"><img src="../icon/icon_pusk.jpg" id="startIcon"></div>
+  <div class="taskbar-icons" id="taskbarIcons"></div>
+  <div class="clock-area">
+    <span class="tray-icon" id="wifiIcon" title="Wi‑Fi">📶</span>
+    <div>
+      <div class="time" id="timeDisplay">00:00</div>
+      <div class="date" id="dateDisplay">1 января 2026</div>
+    </div>
+  </div>
+</div>
+
+<div class="start-menu" id="startMenu">
+  <div class="menu-left" id="menuLeft">
+    <div class="app-item" data-app="calculator">🧮 <span class="menu-label">Калькулятор</span></div>
+    <div class="app-item" data-app="browser">🌐 <span class="menu-label">Браузер</span></div>
+    <div class="app-item" data-app="notepad">📝 <span class="menu-label">Блокнот</span></div>
+    <div class="app-item" data-app="notes">📒 <span class="menu-label">Записи</span></div>
+    <div class="app-item" data-app="settings">⚙️ <span class="menu-label">Настройки</span></div>
+    <div class="app-item" data-app="paint">🎨 <span class="menu-label">Paint</span></div>
+    <div class="app-item" data-app="explorer">📁 <span class="menu-label">Проводник</span></div>
+    <div class="app-item" data-app="terminal">⬛ <span class="menu-label">Терминал</span></div>
+    <div class="app-item" data-app="calendar">📅 <span class="menu-label">Календарь</span></div>
+    <div class="app-item" data-app="google">🔍 <span class="menu-label">Google</span></div>
+    <div class="app-item" data-app="maps">🗺️ <span class="menu-label">Карты</span></div>
+    <div class="app-item" data-app="itchio">🎮 <span class="menu-label">itch.io</span></div>
+    <div class="app-item" data-app="store">🛒 <span class="menu-label">Lumina App</span></div>
+  </div>
+  <div class="menu-right">
+    <div style="padding: 12px; color: white; text-shadow: 0 1px 3px black;">
+      <strong id="weatherTitle">Погода</strong>
+      <div class="weather-content" id="weatherContent">Загрузка...</div>
+    </div>
+  </div>
+</div>
+
+<div class="quick-panel" id="wifiPanel">
+  <h3>Wi‑Fi</h3>
+  <div class="wifi-list">
+    <div class="wifi-item">
+      <span>Wi‑Fi DirectX</span>
+      <button class="glass-btn" disabled>Подключено</button>
+    </div>
+    <div class="wifi-item">
+      <span>Wi‑Fi Mobile RealmY</span>
+      <button class="glass-btn" id="connectRealmY">Подключиться</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay"></div>
+<audio id="welcomeSound" src="../Sound/welcome_sound.mp3" preload="auto"></audio>
+<audio id="virusMusic" src="../Sound/music_horror.mp3" preload="auto"></audio>
+
+<div class="download-toast" id="downloadToast">
+  <div class="toast-title" id="toastTitle">VirusHorror.666</div>
+  <div class="toast-status" id="toastStatus">Установка...</div>
+  <div class="toast-progress-bar" id="toastProgress"></div>
+</div>
+
+<video id="virusVideo" src="../Video/horror_windows.mp4" style="display:none;"></video>
+
+<script>
+  const { ipcRenderer } = require('electron');
+
+  // ================== Локализация ==================
+  const locales = {
+    ru: {
+      lockHint: "Нажмите Enter или кликните, чтобы войти",
+      weatherTitle: "Погода", weatherLoading: "Загрузка...", weatherError: "Ошибка сети",
+      calc: "Калькулятор", browser: "Браузер", notepad: "Блокнот", notes: "Записи",
+      settings: "Настройки", paint: "Paint", explorer: "Проводник", terminal: "Терминал",
+      calendar: "Календарь", google: "Google", maps: "Карты", itchio: "itch.io",
+      store: "Lumina App", startMenu: "Пуск",
+      prevMonth: "←", nextMonth: "→", addEvent: "Добавить", eventPlaceholder: "Добавить событие...",
+      noEvents: "нет", eventsOn: "События на",
+      downloads: "Загрузки", images: "Изображения", videos: "Видео", music: "Музыка",
+      documents: "Документы", games: "Игры", myComputer: "Мой компьютер",
+      chooseCategory: "Выберите категорию", emptyFolder: "(пока пусто)",
+      searchGames: "Поиск игр...",
+      noGames: "Игры не найдены. Убедитесь, что установлены Steam/Epic/GOG в стандартные папки.",
+      launchGame: "Запустить", launchingGame: "Запускается...",
+      diskLabel: "Диск C:", diskFree: "свободно", diskUsed: "занято",
+      terminalWelcome: "Lumina Terminal [версия 1.0.0]",
+      terminalHelp: "Введите 'help' для списка команд.", prompt: "user@lumina:~$",
+      fileNamePlaceholder: "имя файла", saveBtn: "💾 Сохранить",
+      themeTab: "Тема", languageTab: "Язык", aboutTab: "О системе",
+      chooseLanguage: "Выберите язык:", russian: "Русский", english: "English",
+      computer: "Компьютер", ram: "Оперативная память", storage: "Память", systemType: "Тип системы",
+      browserPlaceholder: "Введите адрес или поисковый запрос", goBtn: "Перейти",
+      eraserBtn: "🧹 Ластик", clearBtn: "🔄 Очистить",
+      newNote: "+", deleteNote: "🗑️", addImage: "🖼️",
+      bold: "B", italic: "I", underline: "U", closeBtn: "✕",
+      aboutText: "Lumina Pro",
+      systemInfo: "<strong>Компьютер:</strong> Lumina Pro<br><strong>Оперативная память:</strong> 16 GB<br><strong>Память:</strong> 264 GB<br><strong>Тип системы:</strong> x64",
+      customTheme: "Создать свою тему", customTitle: "Создание своей темы",
+      wallpaperLabel: "Обои:", browse: "Обзор...", colorsLabel: "Цвет темы (1-3 цвета):",
+      addColor: "Добавить цвет", iconsLabel: "Иконки приложений (необязательно):",
+      iconsChanged: "Изменено: 0", puskLabel: "Иконка Пуска (необязательно):",
+      done: "Готово", close: "Закрыть",
+      storeProgress: "Прогресс скачивания", storeLibrary: "Библиотека", storeSearch: "Поиск",
+      install: "Установить", installing: "Установка...", installed: "Установлено",
+      uninstall: "Удалить", noDownloads: "Нет активных загрузок",
+      searchPlaceholder: "Поиск приложений...",
+      virusName: "VirusHorror.666", virusDesc: "666",
+      virusWarning: "Вы уверены, что хотите запустить это приложение? В приложении содержатся вирусы.",
+      virusYes: "Да", virusNo: "Отмена",
+      virusErrorTitle: "Ошибка",
+      virusErrorMessage: "Этот вирус уже был активирован. Повторный запуск невозможен.",
+    },
+    en: {
+      lockHint: "Press Enter or click to log in",
+      weatherTitle: "Weather", weatherLoading: "Loading...", weatherError: "Network error",
+      calc: "Calculator", browser: "Browser", notepad: "Notepad", notes: "Notes",
+      settings: "Settings", paint: "Paint", explorer: "Explorer", terminal: "Terminal",
+      calendar: "Calendar", google: "Google", maps: "Maps", itchio: "itch.io",
+      store: "Lumina App", startMenu: "Start",
+      prevMonth: "←", nextMonth: "→", addEvent: "Add", eventPlaceholder: "Add event...",
+      noEvents: "none", eventsOn: "Events on",
+      downloads: "Downloads", images: "Pictures", videos: "Videos", music: "Music",
+      documents: "Documents", games: "Games", myComputer: "My Computer",
+      chooseCategory: "Choose a category", emptyFolder: "(empty)",
+      searchGames: "Searching for games...",
+      noGames: "No games found. Make sure Steam/Epic/GOG are installed in standard folders.",
+      launchGame: "Launch", launchingGame: "Launching...",
+      diskLabel: "Disk C:", diskFree: "free", diskUsed: "used",
+      terminalWelcome: "Lumina Terminal [version 1.0.0]",
+      terminalHelp: "Type 'help' for a list of commands.", prompt: "user@lumina:~$",
+      fileNamePlaceholder: "file name", saveBtn: "💾 Save",
+      themeTab: "Theme", languageTab: "Language", aboutTab: "About",
+      chooseLanguage: "Choose language:", russian: "Русский", english: "English",
+      computer: "Computer", ram: "RAM", storage: "Storage", systemType: "System type",
+      browserPlaceholder: "Enter address or search query", goBtn: "Go",
+      eraserBtn: "🧹 Eraser", clearBtn: "🔄 Clear",
+      newNote: "+", deleteNote: "🗑️", addImage: "🖼️",
+      bold: "B", italic: "I", underline: "U", closeBtn: "✕",
+      aboutText: "Lumina Pro",
+      systemInfo: "<strong>Computer:</strong> Lumina Pro<br><strong>RAM:</strong> 16 GB<br><strong>Storage:</strong> 264 GB<br><strong>System type:</strong> x64",
+      customTheme: "Create Your Theme", customTitle: "Create Custom Theme",
+      wallpaperLabel: "Wallpaper:", browse: "Browse...", colorsLabel: "Theme colors (1-3 colors):",
+      addColor: "Add color", iconsLabel: "App icons (optional):",
+      iconsChanged: "Changed: 0", puskLabel: "Start icon (optional):",
+      done: "Done", close: "Close",
+      storeProgress: "Download Progress", storeLibrary: "Library", storeSearch: "Search",
+      install: "Install", installing: "Installing...", installed: "Installed",
+      uninstall: "Uninstall", noDownloads: "No active downloads",
+      searchPlaceholder: "Search apps...",
+      virusName: "VirusHorror.666", virusDesc: "666",
+      virusWarning: "Are you sure you want to run this application? It contains viruses.",
+      virusYes: "Yes", virusNo: "Cancel",
+      virusErrorTitle: "Error",
+      virusErrorMessage: "This virus has already been activated. Cannot run again.",
+    }
+  };
+
+  let currentLang = localStorage.getItem('lumLang') || 'ru';
+  let loc = locales[currentLang];
+
+  // ================== Глобальные переменные ==================
+  const taskbar = document.getElementById('taskbar');
+  const startMenu = document.getElementById('startMenu');
+  const overlay = document.getElementById('overlay');
+  const taskbarIcons = document.getElementById('taskbarIcons');
+  const windows = {};
+  const runningApps = {};
+  let menuOpen = false;
+  let wifiPanelOpen = false;
+  let locked = true;
+  let virusActive = false;
+
+  const themes = [
+    { name: 'Темно-фиолетовый', wallpaper: '../Wallpaper/windows_wallpaper2.jpg', color: 'rgba(75,0,130,0.4)', icon: '../icon/pusk_theme1.jpg' },
+    { name: 'Черно-синий', wallpaper: '../Wallpaper/windows_wallpaper3.jpg', color: 'rgba(0,0,128,0.4)', icon: '../icon/pusk_theme2.jpg' },
+    { name: 'Черно-фиолетово-синий', wallpaper: '../Wallpaper/windows_wallpaper4.jpg', color: 'rgba(30,0,60,0.5)', icon: '../icon/pusk_theme3.jpg' },
+    { name: 'Бело-зеленый', wallpaper: '../Wallpaper/windows_wallpaper1.jpg', color: 'rgba(224,255,224,0.5)', icon: '../icon/pusk_theme4.jpg' },
+    { name: 'Бело-голубой', wallpaper: '../Wallpaper/windows_wallpaper5.jpg', color: 'rgba(200,230,255,0.5)', icon: '../icon/icon_pusk.jpg' }
+  ];
+  let currentTheme = parseInt(localStorage.getItem('lumTheme') || '0');
+  let customThemeData = JSON.parse(localStorage.getItem('lumCustomTheme') || 'null');
+
+  function applyTheme(idx) {
+    const t = themes[idx];
+    document.getElementById('wallpaper').style.backgroundImage = `url('${t.wallpaper}')`;
+    taskbar.style.backgroundColor = t.color;
+    document.getElementById('startIcon').src = t.icon;
+    localStorage.setItem('lumTheme', idx);
+    localStorage.removeItem('lumCustomTheme');
+    customThemeData = null;
+    currentTheme = idx;
+  }
+
+  function applyCustomTheme(data) {
+    document.getElementById('wallpaper').style.backgroundImage = `url('${data.wallpaper}')`;
+    taskbar.style.backgroundColor = data.colors[0] || 'rgba(255,255,255,0.4)';
+    if (data.puskIcon) document.getElementById('startIcon').src = data.puskIcon;
+    if (data.appIcons) {
+      const iconElements = document.querySelectorAll('.desktop-icon .icon-img, .app-item .icon-img');
+      iconElements.forEach((el, i) => {
+        if (data.appIcons[i]) el.style.backgroundImage = `url('${data.appIcons[i]}')`;
+      });
+    }
+    localStorage.setItem('lumCustomTheme', JSON.stringify(data));
+    localStorage.removeItem('lumTheme');
+    customThemeData = data;
+  }
+
+  if (customThemeData) {
+    applyCustomTheme(customThemeData);
+  } else {
+    applyTheme(currentTheme);
+  }
+
+  // ================== Часы и блокировка ==================
+  function updateClock() {
+    const now = new Date();
+    const monthsRu = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+    const monthsEn = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const months = currentLang === 'ru' ? monthsRu : monthsEn;
+    document.getElementById('timeDisplay').textContent = now.toLocaleTimeString(currentLang === 'ru' ? 'ru-RU' : 'en-US', { hour: '2-digit', minute: '2-digit' });
+    document.getElementById('dateDisplay').textContent = `${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+    document.getElementById('lockTime').textContent = now.toLocaleTimeString(currentLang === 'ru' ? 'ru-RU' : 'en-US', { hour: '2-digit', minute: '2-digit' });
+    document.getElementById('lockDate').textContent = `${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  const lockscreen = document.getElementById('lockscreen');
+  function unlock() {
+    if (!locked) return;
+    locked = false;
+    lockscreen.classList.add('hidden');
+  }
+  lockscreen.addEventListener('click', unlock);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && locked) unlock();
+  });
+
+  function toggleMenu() {
+    if (virusActive) return;
+    menuOpen = !menuOpen;
+    startMenu.classList.toggle('open', menuOpen);
+    overlay.classList.toggle('active', menuOpen);
+  }
+  document.getElementById('startBtn').addEventListener('click', (e) => { e.stopPropagation(); toggleMenu(); });
+  overlay.addEventListener('click', () => { if (menuOpen) toggleMenu(); });
+
+  // ================== Wi‑Fi ==================
+  const wifiPanel = document.getElementById('wifiPanel');
+  const wifiIcon = document.getElementById('wifiIcon');
+
+  function toggleWifiPanel() {
+    wifiPanelOpen = !wifiPanelOpen;
+    wifiPanel.classList.toggle('open', wifiPanelOpen);
+  }
+
+  wifiIcon.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleWifiPanel();
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('#wifiPanel') && !e.target.closest('#wifiIcon')) {
+      wifiPanel.classList.remove('open');
+      wifiPanelOpen = false;
+    }
+  });
+
+  document.getElementById('connectRealmY').addEventListener('click', () => {
+    const pass = prompt('Введите пароль для Wi‑Fi Mobile RealmY:');
+    if (pass === '7123jdf7sdf899Lamunia') {
+      alert('Подключено!');
+    } else if (pass !== null) {
+      alert('Неверный пароль');
+    }
+  });
+
+  // ================== Функции окон ==================
+  function launchApp(appName) {
+    if (virusActive) return;
+    if (windows[appName]) {
+      const win = windows[appName];
+      win.classList.remove('minimized');
+      win.style.display = 'flex';
+      win.style.pointerEvents = 'auto';
+      win.style.transition = 'transform 0.3s cubic-bezier(0.2,0.8,0.2,1), opacity 0.2s';
+      win.style.transform = 'scale(1)';
+      win.style.opacity = '1';
+      const icon = document.querySelector(`.taskbar-icon[data-app="${appName}"]`);
+      if (icon) icon.classList.add('active');
+      return;
+    }
+
+    const titles = {
+      calculator: loc.calc, browser: loc.browser, notepad: loc.notepad,
+      notes: loc.notes, settings: loc.settings, paint: loc.paint,
+      explorer: loc.explorer, terminal: loc.terminal, calendar: loc.calendar,
+      google: loc.google, maps: loc.maps, itchio: loc.itchio, store: loc.store,
+      virushorror: loc.virusName
+    };
+    const isWebViewApp = ['browser', 'google', 'maps', 'itchio'].includes(appName);
+    const win = document.createElement('div');
+    win.className = 'window active';
+    win.dataset.app = appName;
+    win.style.top = '80px';
+    win.style.left = '100px';
+    win.style.width = isWebViewApp ? '800px' : (appName === 'store' ? '700px' : '550px');
+    win.style.height = isWebViewApp ? '550px' : (appName === 'store' ? '500px' : '420px');
+    win.innerHTML = `
+      <div class="window-header">
+        <span class="window-title">${titles[appName]}</span>
+        <div class="window-controls">
+          <button class="win-btn close-btn">✕</button>
+        </div>
+      </div>
+      <div class="window-body" id="body-${appName}"></div>
+      ${!isWebViewApp ? `
+        <div class="resize-handle top"></div><div class="resize-handle bottom"></div>
+        <div class="resize-handle left"></div><div class="resize-handle right"></div>
+        <div class="resize-handle corner tl"></div><div class="resize-handle corner tr"></div>
+        <div class="resize-handle corner bl"></div><div class="resize-handle corner br"></div>
+      ` : ''}
+    `;
+    document.body.appendChild(win);
+    windows[appName] = win;
+    runningApps[appName] = true;
+
+    const body = document.getElementById(`body-${appName}`);
+    fillAppBody(appName, body);
+    win.querySelector('.close-btn').addEventListener('click', () => closeApp(appName));
+    makeDraggable(win);
+    if (!isWebViewApp) makeResizable(win);
+
+    win.style.transform = 'scale(0.8)';
+    win.style.opacity = '0';
+    requestAnimationFrame(() => {
+      win.style.transition = 'transform 0.3s cubic-bezier(0.2,0.8,0.2,1), opacity 0.2s';
+      win.style.transform = 'scale(1)';
+      win.style.opacity = '1';
+    });
+    addTaskbarIcon(appName);
+  }
+
+  function closeApp(appName) {
+    const win = windows[appName];
+    if (!win) return;
+    win.style.transition = 'transform 0.2s ease-in, opacity 0.2s';
+    win.style.transform = 'scale(0.9)';
+    win.style.opacity = '0';
+    setTimeout(() => {
+      if (win && win.parentNode) win.remove();
+      delete windows[appName];
+      delete runningApps[appName];
+      removeTaskbarIcon(appName);
+    }, 200);
+  }
+
+  function minimizeApp(appName) {
+    const win = windows[appName];
+    if (!win) return;
+    win.classList.add('minimized');
+    const icon = document.querySelector(`.taskbar-icon[data-app="${appName}"]`);
+    if (icon) icon.classList.remove('active');
+  }
+
+  function addTaskbarIcon(appName) {
+    const icon = document.createElement('div');
+    icon.className = 'taskbar-icon running active';
+    icon.dataset.app = appName;
+    const emojiMap = {
+      calculator: '🧮', browser: '🌐', notepad: '📝', notes: '📒',
+      settings: '⚙️', paint: '🎨', explorer: '📁', terminal: '⬛', calendar: '📅',
+      google: '🔍', maps: '🗺️', itchio: '🎮', store: '🛒', virushorror: '🦠'
+    };
+    icon.innerHTML = (emojiMap[appName] || '📄') + '<div class="indicator"></div>';
+    icon.addEventListener('click', () => {
+      if (virusActive) return;
+      const win = windows[appName];
+      if (!win) return;
+      if (win.classList.contains('minimized') || win.style.display === 'none') {
+        win.classList.remove('minimized');
+        win.style.display = 'flex';
+        win.style.pointerEvents = 'auto';
+        win.style.transition = 'transform 0.3s cubic-bezier(0.2,0.8,0.2,1), opacity 0.2s';
+        win.style.transform = 'scale(1)';
+        win.style.opacity = '1';
+        icon.classList.add('active');
+      } else {
+        minimizeApp(appName);
+      }
+    });
+    taskbarIcons.appendChild(icon);
+  }
+
+  function removeTaskbarIcon(appName) {
+    const icon = document.querySelector(`.taskbar-icon[data-app="${appName}"]`);
+    if (icon) icon.remove();
+  }
+
+  // ================== Заполнение приложений ==================
+  function fillAppBody(appName, body) {
+    switch (appName) {
+      case 'calculator':
+        body.innerHTML = `<div class="calc-display" id="calcDisplay">0</div><div class="calc-grid" id="calcGrid"></div>`;
+        const display = document.getElementById('calcDisplay');
+        const btns = ['C','⌫','%','/','7','8','9','*','4','5','6','-','1','2','3','+','0','.','='];
+        let expr = '0', reset = false;
+        btns.forEach(b => {
+          const btn = document.createElement('button');
+          btn.className = 'calc-btn';
+          btn.textContent = b;
+          btn.onclick = () => {
+            if (b === 'C') { expr = '0'; reset = false; }
+            else if (b === '⌫') { expr = expr.slice(0, -1) || '0'; }
+            else if (b === '=') { try { expr = eval(expr).toString(); } catch { expr = 'Ошибка'; } reset = true; }
+            else {
+              if (reset) { expr = ''; reset = false; }
+              if (expr === '0') expr = '';
+              expr += b;
+            }
+            display.textContent = expr;
+          };
+          document.getElementById('calcGrid').appendChild(btn);
+        });
+        break;
+
+      case 'browser':
+        body.innerHTML = `
+          <div class="browser-toolbar">
+            <button class="glass-btn" id="browserBack">←</button>
+            <button class="glass-btn" id="browserForward">→</button>
+            <button class="glass-btn" id="browserRefresh">↻</button>
+            <input class="glass-input" id="browserUrl" style="flex:1;" placeholder="${loc.browserPlaceholder}" value="https://www.google.com">
+            <button class="glass-btn" id="browserGo">${loc.goBtn}</button>
+          </div>
+          <webview id="browserWebview" class="browser-webview" style="width:100%; height:calc(100% - 50px);" src="https://www.google.com" partition="persist:lumina" allowpopups></webview>
+        `;
+        const webview = document.getElementById('browserWebview');
+        const urlInput = document.getElementById('browserUrl');
+        document.getElementById('browserGo').addEventListener('click', () => {
+          let query = urlInput.value.trim();
+          if (!query) return;
+          if (!query.startsWith('http://') && !query.startsWith('https://')) {
+            query = 'https://www.google.com/search?q=' + encodeURIComponent(query);
+          }
+          webview.loadURL(query);
+        });
+        document.getElementById('browserBack').addEventListener('click', () => webview.goBack());
+        document.getElementById('browserForward').addEventListener('click', () => webview.goForward());
+        document.getElementById('browserRefresh').addEventListener('click', () => webview.reload());
+        webview.addEventListener('did-navigate', (e) => { urlInput.value = e.url; });
+        break;
+
+      case 'notepad':
+        body.innerHTML = `
+          <div style="display:flex; gap:5px; margin-bottom:8px;">
+            <input class="glass-input" id="fileName" placeholder="${loc.fileNamePlaceholder}" style="flex:1;" />
+            <select class="glass-input" id="fileExt">
+              <option value="txt">.txt</option><option value="html">.html</option><option value="css">.css</option><option value="py">.py</option>
+            </select>
+            <button class="glass-btn" id="saveFileBtn">${loc.saveBtn}</button>
+          </div>
+          <textarea id="notepadArea" class="glass-input" style="width:100%; height:200px; resize: none;" placeholder=""></textarea>
+        `;
+        document.getElementById('saveFileBtn').addEventListener('click', () => {
+          const name = document.getElementById('fileName').value || 'document';
+          const ext = document.getElementById('fileExt').value;
+          const content = document.getElementById('notepadArea').value;
+          const blob = new Blob([content], { type: 'text/plain' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = `${name}.${ext}`; a.click();
+        });
+        const saved = localStorage.getItem('notepad');
+        if (saved) document.getElementById('notepadArea').value = saved;
+        document.getElementById('notepadArea').addEventListener('input', e => localStorage.setItem('notepad', e.target.value));
+        break;
+
+      case 'notes':
+        body.innerHTML = `
+          <div style="display:flex; gap:10px; height:100%;">
+            <div style="width:30%; background:rgba(0,0,0,0.05); border-radius:8px; padding:8px; overflow-y:auto;" id="notesList"></div>
+            <div style="flex:1; display:flex; flex-direction:column; gap:5px;">
+              <div style="display:flex; gap:5px;">
+                <button class="glass-btn" data-cmd="bold"><b>${loc.bold}</b></button>
+                <button class="glass-btn" data-cmd="italic"><i>${loc.italic}</i></button>
+                <button class="glass-btn" data-cmd="underline"><u>${loc.underline}</u></button>
+                <input type="color" id="foreColor" value="#000000" class="glass-input" />
+                <button class="glass-btn" id="addImageBtn">${loc.addImage}</button>
+                <button class="glass-btn" id="newNoteBtn">${loc.newNote}</button>
+                <button class="glass-btn" id="delNoteBtn">${loc.deleteNote}</button>
+              </div>
+              <div contenteditable="true" id="editorArea" style="flex:1; background:rgba(255,255,255,0.5); border-radius:8px; padding:10px; overflow-y:auto;"></div>
+            </div>
+          </div>
+        `;
+        let notes = JSON.parse(localStorage.getItem('notes') || '[]');
+        let currentNoteId = null;
+        function renderList() {
+          const list = document.getElementById('notesList');
+          list.innerHTML = notes.map(n => `<div class="note-item" data-id="${n.id}" style="padding:6px; cursor:pointer;">${n.title || (currentLang==='ru'?'Без названия':'Untitled')}</div>`).join('');
+        }
+        function saveCurrent() {
+          if (currentNoteId === null) return;
+          const note = notes.find(n => n.id === currentNoteId);
+          if (note) {
+            note.content = document.getElementById('editorArea').innerHTML;
+            note.title = document.getElementById('editorArea').textContent?.slice(0, 30) || (currentLang==='ru'?'Без названия':'Untitled');
+          }
+          localStorage.setItem('notes', JSON.stringify(notes));
+          renderList();
+        }
+        document.getElementById('newNoteBtn').addEventListener('click', () => {
+          const id = Date.now();
+          notes.push({ id, title: (currentLang==='ru'?'Новая запись':'New note'), content: '' });
+          currentNoteId = id;
+          document.getElementById('editorArea').innerHTML = '';
+          localStorage.setItem('notes', JSON.stringify(notes));
+          renderList();
+        });
+        document.getElementById('delNoteBtn').addEventListener('click', () => {
+          if (currentNoteId === null) return;
+          notes = notes.filter(n => n.id !== currentNoteId);
+          currentNoteId = notes.length ? notes[0].id : null;
+          document.getElementById('editorArea').innerHTML = currentNoteId ? notes.find(n => n.id === currentNoteId).content : '';
+          localStorage.setItem('notes', JSON.stringify(notes));
+          renderList();
+        });
+        document.getElementById('notesList').addEventListener('click', (e) => {
+          const el = e.target.closest('.note-item');
+          if (!el) return;
+          const id = Number(el.dataset.id);
+          if (currentNoteId) saveCurrent();
+          currentNoteId = id;
+          const note = notes.find(n => n.id === id);
+          document.getElementById('editorArea').innerHTML = note.content;
+        });
+        document.getElementById('editorArea').addEventListener('input', saveCurrent);
+        document.querySelectorAll('.glass-btn[data-cmd]').forEach(btn => btn.addEventListener('click', () => document.execCommand(btn.dataset.cmd)));
+        document.getElementById('foreColor').addEventListener('change', e => document.execCommand('foreColor', false, e.target.value));
+        document.getElementById('addImageBtn').addEventListener('click', () => {
+          const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*';
+          input.onchange = (e) => {
+            const file = e.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => { const img = document.createElement('img'); img.src = ev.target.result; img.style.maxWidth = '200px'; document.getElementById('editorArea').appendChild(img); saveCurrent(); };
+            reader.readAsDataURL(file);
+          };
+          input.click();
+        });
+        if (notes.length > 0) { currentNoteId = notes[0].id; document.getElementById('editorArea').innerHTML = notes[0].content; }
+        else document.getElementById('newNoteBtn').click();
+        renderList();
+        break;
+
+      case 'settings':
+        body.innerHTML = `
+          <div class="settings-tabs" id="settingsTabs">
+            <button class="glass-btn active" data-tab="theme">${loc.themeTab}</button>
+            <button class="glass-btn" data-tab="language">${loc.languageTab}</button>
+            <button class="glass-btn" data-tab="about">${loc.aboutTab}</button>
+          </div>
+          <div id="settingsTabContent"></div>
+          <div style="text-align:center; margin-top:15px; color:#666;">Скоро будет больше вкладок</div>
+        `;
+        const tabs = document.getElementById('settingsTabs');
+        const content = document.getElementById('settingsTabContent');
+        function switchTab(tab) {
+          tabs.querySelectorAll('.glass-btn').forEach(b => b.classList.remove('active'));
+          tabs.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+          if (tab === 'theme') {
+            content.innerHTML = '<div class="theme-grid" id="themeGrid"></div>';
+            const grid = document.getElementById('themeGrid');
+            themes.forEach((t, idx) => {
+              const card = document.createElement('div');
+              card.className = 'theme-card';
+              if (!customThemeData && idx === currentTheme) card.classList.add('active');
+              card.innerHTML = `<div class="theme-preview" style="background-image:url('${t.wallpaper}')"></div><div class="theme-label">${t.name}</div>`;
+              card.addEventListener('click', () => {
+                applyTheme(idx);
+                document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('active'));
+                card.classList.add('active');
+                const customCard = document.getElementById('customThemeCard');
+                if (customCard) customCard.classList.remove('active');
+              });
+              grid.appendChild(card);
+            });
+            const customCard = document.createElement('div');
+            customCard.className = 'theme-card';
+            customCard.id = 'customThemeCard';
+            if (customThemeData) customCard.classList.add('active');
+            customCard.innerHTML = `<div class="theme-preview" style="background: linear-gradient(45deg, #ff00cc, #3333ff);"></div><div class="theme-label">${loc.customTheme}</div>`;
+            customCard.addEventListener('click', openCustomThemeModal);
+            grid.appendChild(customCard);
+          } else if (tab === 'language') {
+            content.innerHTML = `
+              <div>
+                <p>${loc.chooseLanguage}</p>
+                <button class="glass-btn ${currentLang === 'ru' ? 'active' : ''}" id="langRu">${loc.russian}</button>
+                <button class="glass-btn ${currentLang === 'en' ? 'active' : ''}" id="langEn">${loc.english}</button>
+              </div>
+            `;
+            document.getElementById('langRu').addEventListener('click', () => applyLanguage('ru'));
+            document.getElementById('langEn').addEventListener('click', () => applyLanguage('en'));
+          } else if (tab === 'about') {
+            content.innerHTML = `<div class="system-info">${loc.systemInfo}</div>`;
+          }
+        }
+        tabs.addEventListener('click', (e) => { const btn = e.target.closest('.glass-btn'); if (btn) switchTab(btn.dataset.tab); });
+        switchTab('theme');
+        break;
+
+      case 'paint':
+        body.innerHTML = `
+          <div style="display:flex; gap:8px; margin-bottom:8px;">
+            <input type="color" id="paintColor" value="#000000" class="glass-input" title="Цвет кисти">
+            <input type="range" id="paintSize" min="1" max="20" value="3" class="glass-input" title="Размер кисти">
+            <button id="eraserBtn" class="glass-btn">${loc.eraserBtn}</button>
+            <button id="clearPaintBtn" class="glass-btn">${loc.clearBtn}</button>
+          </div>
+          <canvas id="paintCanvas" width="400" height="300" style="border-radius:8px; background:white;"></canvas>
+        `;
+        const canvas = document.getElementById('paintCanvas');
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = 'white'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        let painting = false, eraser = false;
+        function startPos(e) { painting = true; draw(e); }
+        function endPos() { painting = false; ctx.beginPath(); }
+        function draw(e) {
+          if (!painting) return;
+          const rect = canvas.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
+          ctx.lineWidth = document.getElementById('paintSize').value;
+          ctx.lineCap = 'round';
+          ctx.strokeStyle = eraser ? 'white' : document.getElementById('paintColor').value;
+          ctx.lineTo(x, y);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+        }
+        canvas.addEventListener('mousedown', startPos);
+        canvas.addEventListener('mouseup', endPos);
+        canvas.addEventListener('mousemove', draw);
+        document.getElementById('eraserBtn').addEventListener('click', () => { eraser = !eraser; });
+        document.getElementById('clearPaintBtn').addEventListener('click', () => { ctx.fillStyle = 'white'; ctx.fillRect(0, 0, canvas.width, canvas.height); });
+        break;
+
+      case 'explorer':
+        body.innerHTML = `
+          <div class="explorer-container">
+            <div class="explorer-sidebar" id="explorerSidebar">
+              <button class="glass-btn" data-page="downloads" style="width:100%; margin-bottom:5px;">📥 ${loc.downloads}</button>
+              <button class="glass-btn" data-page="images" style="width:100%; margin-bottom:5px;">🖼️ ${loc.images}</button>
+              <button class="glass-btn" data-page="videos" style="width:100%; margin-bottom:5px;">🎬 ${loc.videos}</button>
+              <button class="glass-btn" data-page="music" style="width:100%; margin-bottom:5px;">🎵 ${loc.music}</button>
+              <button class="glass-btn" data-page="documents" style="width:100%; margin-bottom:5px;">📄 ${loc.documents}</button>
+              <button class="glass-btn" data-page="games" style="width:100%; margin-bottom:5px;">🎮 ${loc.games}</button>
+              <button class="glass-btn" data-page="mycomputer" style="width:100%; margin-top:auto;">💻 ${loc.myComputer}</button>
+            </div>
+            <div class="explorer-content" id="explorerContent">${loc.chooseCategory}</div>
+          </div>
+        `;
+        const cont = document.getElementById('explorerContent');
+        document.getElementById('explorerSidebar').addEventListener('click', async (e) => {
+          const btn = e.target.closest('.glass-btn');
+          if (!btn) return;
+          const page = btn.dataset.page;
+          switch (page) {
+            case 'downloads': cont.innerHTML = `<p>📥 ${loc.downloads} ${loc.emptyFolder}</p>`; break;
+            case 'images': cont.innerHTML = `<p>🖼️ ${loc.images} ${loc.emptyFolder}</p>`; break;
+            case 'videos': cont.innerHTML = `<p>🎬 ${loc.videos} ${loc.emptyFolder}</p>`; break;
+            case 'music': cont.innerHTML = `<p>🎵 ${loc.music} ${loc.emptyFolder}</p>`; break;
+            case 'documents': cont.innerHTML = `<p>📄 ${loc.documents} ${loc.emptyFolder}</p>`; break;
+            case 'games':
+              cont.innerHTML = `<p>${loc.searchGames}</p>`;
+              try {
+                const games = await ipcRenderer.invoke('get-games');
+                if (games.length === 0) {
+                  cont.innerHTML = `<p>${loc.noGames}</p>`;
+                } else {
+                  cont.innerHTML = games.map(g => `
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; background:rgba(255,255,255,0.2); border-radius:8px; padding:8px;">
+                      <span>🎮 ${g.name}</span>
+                      <button class="glass-btn play-game-btn" data-path="${g.path.replace(/"/g, '&quot;')}">${loc.launchGame}</button>
+                    </div>
+                  `).join('');
+                  document.querySelectorAll('.play-game-btn').forEach(btn => {
+                    btn.addEventListener('click', async () => {
+                      const gamePath = btn.dataset.path;
+                      btn.textContent = loc.launchingGame;
+                      btn.disabled = true;
+                      await ipcRenderer.invoke('launch-game', gamePath);
+                      btn.textContent = loc.launchGame;
+                      btn.disabled = false;
+                    });
+                  });
+                }
+              } catch (err) {
+                cont.innerHTML = `<p>${loc.weatherError}</p>`;
+              }
+              break;
+            case 'mycomputer':
+              cont.innerHTML = `
+                <div class="my-pc-info">
+                  <h3>${loc.myComputer}</h3>
+                  <p><strong>${loc.diskLabel}</strong> 264 GB (${loc.diskFree} 254 GB, ${loc.diskUsed} 10 GB)</p>
+                  <div style="background: #e0e0e0; width: 100%; height: 20px; border-radius: 10px;">
+                    <div style="background: #0078d4; width: 3.8%; height: 100%; border-radius: 10px;"></div>
+                  </div>
+                </div>
+              `;
+              break;
+          }
+        });
+        break;
+
+      case 'terminal':
+        body.innerHTML = `
+          <div class="terminal-body" id="terminalOutput">
+            <div>${loc.terminalWelcome}</div>
+            <div>${loc.terminalHelp}</div>
+          </div>
+        `;
+        const output = document.getElementById('terminalOutput');
+        function addLine(text, type = 'output') {
+          const line = document.createElement('div');
+          if (type === 'input') {
+            line.innerHTML = `<span class="terminal-prompt">${loc.prompt}</span> ${text}`;
+          } else {
+            line.textContent = text;
+          }
+          output.appendChild(line);
+          output.scrollTop = output.scrollHeight;
+        }
+        function createInput() {
+          const inputLine = document.createElement('div');
+          inputLine.className = 'terminal-input-line';
+          const prompt = document.createElement('span');
+          prompt.className = 'terminal-prompt';
+          prompt.textContent = loc.prompt;
+          const input = document.createElement('input');
+          input.className = 'terminal-input';
+          input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+              const cmd = input.value.trim();
+              addLine(input.value, 'input');
+              input.disabled = true;
+              executeCommand(cmd);
+            }
+          });
+          inputLine.appendChild(prompt);
+          inputLine.appendChild(input);
+          output.appendChild(inputLine);
+          input.focus();
+        }
+        function executeCommand(cmd) {
+          const parts = cmd.split(' ');
+          const command = parts[0].toLowerCase();
+          let response = '';
+          switch (command) {
+            case 'help':
+              response = (currentLang==='ru') ? 'Доступные команды: help, date, time, echo, calc, clear, ls, whoami' : 'Available commands: help, date, time, echo, calc, clear, ls, whoami';
+              break;
+            case 'date':
+              response = new Date().toLocaleDateString(currentLang==='ru'?'ru-RU':'en-US');
+              break;
+            case 'time':
+              response = new Date().toLocaleTimeString(currentLang==='ru'?'ru-RU':'en-US');
+              break;
+            case 'echo':
+              response = parts.slice(1).join(' ');
+              break;
+            case 'calc':
+              launchApp('calculator');
+              response = (currentLang==='ru') ? 'Калькулятор запущен.' : 'Calculator launched.';
+              break;
+            case 'clear':
+              output.innerHTML = '';
+              break;
+            case 'ls':
+              response = 'Desktop/ Documents/ Downloads/ Pictures/ Music/ Videos/';
+              break;
+            case 'whoami':
+              response = 'user';
+              break;
+            default:
+              response = (currentLang==='ru') ? `Команда '${cmd}' не распознана. Введите 'help'.` : `Command '${cmd}' not recognized. Type 'help'.`;
+          }
+          if (response) addLine(response);
+          createInput();
+        }
+        createInput();
+        break;
+
+      case 'calendar':
+        body.innerHTML = `
+          <div class="calendar-header">
+            <button class="glass-btn" id="prevMonth">${loc.prevMonth}</button>
+            <span id="monthYear"></span>
+            <button class="glass-btn" id="nextMonth">${loc.nextMonth}</button>
+          </div>
+          <div class="calendar-grid" id="calendarGrid"></div>
+          <div style="margin-top: 10px;">
+            <input class="glass-input" id="eventInput" placeholder="${loc.eventPlaceholder}" style="width: 70%;">
+            <button class="glass-btn" id="addEventBtn">${loc.addEvent}</button>
+          </div>
+          <div id="selectedDayInfo" style="margin-top: 8px; color: white;"></div>
+        `;
+        let selectedDate = new Date();
+        let events = JSON.parse(localStorage.getItem('lumEvents') || '{}');
+        function saveEvents() { localStorage.setItem('lumEvents', JSON.stringify(events)); }
+        function renderCalendar() {
+          const year = selectedDate.getFullYear();
+          const month = selectedDate.getMonth();
+          const firstDay = new Date(year, month, 1).getDay() || 7;
+          const daysInMonth = new Date(year, month + 1, 0).getDate();
+          const monthNamesRu = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+          const monthNamesEn = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+          const monthNames = currentLang === 'ru' ? monthNamesRu : monthNamesEn;
+          document.getElementById('monthYear').textContent = `${monthNames[month]} ${year}`;
+          const grid = document.getElementById('calendarGrid');
+          grid.innerHTML = '';
+          const daysOfWeek = currentLang === 'ru' ? ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+          daysOfWeek.forEach(d => grid.appendChild(Object.assign(document.createElement('div'), { className: 'calendar-cell', textContent: d })));
+          for (let i = 1; i < firstDay; i++) grid.appendChild(document.createElement('div'));
+          for (let d = 1; d <= daysInMonth; d++) {
+            const cell = document.createElement('div');
+            cell.className = 'calendar-cell';
+            cell.textContent = d;
+            const dateKey = `${year}-${month+1}-${d}`;
+            if (events[dateKey]) {
+              const indicator = document.createElement('div');
+              indicator.className = 'event-indicator';
+              cell.appendChild(indicator);
+            }
+            const today = new Date();
+            if (d === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
+              cell.classList.add('today');
+            }
+            cell.addEventListener('click', () => {
+              const key = `${year}-${month+1}-${d}`;
+              document.getElementById('selectedDayInfo').textContent = `${loc.eventsOn} ${d}.${month+1}.${year}: ${events[key] || loc.noEvents}`;
+              selectedDate.setDate(d);
+              selectedDate.setMonth(month);
+              selectedDate.setFullYear(year);
+            });
+            grid.appendChild(cell);
+          }
+        }
+        document.getElementById('prevMonth').addEventListener('click', () => {
+          selectedDate.setMonth(selectedDate.getMonth() - 1);
+          renderCalendar();
+        });
+        document.getElementById('nextMonth').addEventListener('click', () => {
+          selectedDate.setMonth(selectedDate.getMonth() + 1);
+          renderCalendar();
+        });
+        document.getElementById('addEventBtn').addEventListener('click', () => {
+          const input = document.getElementById('eventInput');
+          const text = input.value.trim();
+          if (!text) return;
+          const key = `${selectedDate.getFullYear()}-${selectedDate.getMonth()+1}-${selectedDate.getDate()}`;
+          events[key] = text;
+          saveEvents();
+          renderCalendar();
+          input.value = '';
+          if (Notification.permission === 'granted') {
+            new Notification('Lumina Calendar', { body: text });
+          } else if (Notification.permission !== 'denied') {
+            Notification.requestPermission().then(perm => {
+              if (perm === 'granted') new Notification('Lumina Calendar', { body: text });
+            });
+          }
+        });
+        if (Notification.permission === 'default') Notification.requestPermission();
+        renderCalendar();
+        break;
+
+      case 'google':
+        body.innerHTML = `<webview class="browser-webview" style="width:100%; height:100%;" src="https://www.google.com"></webview>`;
+        break;
+      case 'maps':
+        body.innerHTML = `<webview class="browser-webview" style="width:100%; height:100%;" src="https://www.google.com/maps"></webview>`;
+        break;
+      case 'itchio':
+        body.innerHTML = `<webview class="browser-webview" style="width:100%; height:100%;" src="https://itch.io"></webview>`;
+        break;
+      case 'store':
+        body.innerHTML = `
+          <div class="store-tabs">
+            <button class="glass-btn active" data-tab="progress">${loc.storeProgress}</button>
+            <button class="glass-btn" data-tab="library">${loc.storeLibrary}</button>
+            <button class="glass-btn" data-tab="search">${loc.storeSearch}</button>
+          </div>
+          <div class="store-section active" id="progressSection">
+            <p>${loc.noDownloads}</p>
+          </div>
+          <div class="store-section" id="librarySection">
+            <div id="libraryList"></div>
+          </div>
+          <div class="store-section" id="searchSection">
+            <input class="glass-input" id="searchInput" placeholder="${loc.searchPlaceholder}" style="width:100%; margin-bottom:10px;">
+            <div id="searchResults"></div>
+          </div>
+        `;
+        const storeTabs = body.querySelectorAll('.glass-btn');
+        const sections = {
+          progress: body.querySelector('#progressSection'),
+          library: body.querySelector('#librarySection'),
+          search: body.querySelector('#searchSection')
+        };
+        storeTabs.forEach(tab => {
+          tab.addEventListener('click', () => {
+            storeTabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            Object.keys(sections).forEach(key => sections[key].classList.remove('active'));
+            sections[tab.dataset.tab].classList.add('active');
+          });
+        });
+
+        const libraryList = body.querySelector('#libraryList');
+        function renderLibrary() {
+          const installed = JSON.parse(localStorage.getItem('lumInstalledApps') || '[]');
+          if (installed.length === 0) {
+            libraryList.innerHTML = '<p>Нет установленных приложений</p>';
+            return;
+          }
+          libraryList.innerHTML = installed.map(app => `
+            <div class="app-card">
+              <img src="../icon/horrorvirusapp.jpg" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22><rect width=%2240%22 height=%2240%22 fill=%22%23ccc%22/></svg>'">
+              <div style="flex:1">
+                <strong>${app.name}</strong>
+                <div>${loc.installed}</div>
+              </div>
+              <button class="glass-btn uninstall-btn" data-id="${app.id}">${loc.uninstall}</button>
+            </div>
+          `).join('');
+          document.querySelectorAll('.uninstall-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              const appId = btn.dataset.id;
+              uninstallApp(appId, btn);
+            });
+          });
+        }
+        renderLibrary();
+
+        function uninstallApp(id, button) {
+          let installed = JSON.parse(localStorage.getItem('lumInstalledApps') || '[]');
+          installed = installed.filter(app => app.id !== id);
+          localStorage.setItem('lumInstalledApps', JSON.stringify(installed));
+          renderLibrary();
+          removeInstalledAppFromDesktop(id);
+        }
+
+        const searchInput = body.querySelector('#searchInput');
+        const searchResults = body.querySelector('#searchResults');
+        const availableApps = [
+          { id: 'virushorror', name: loc.virusName, icon: '../icon/horrorvirusapp.jpg', desc: loc.virusDesc }
+        ];
+        searchInput.addEventListener('input', () => {
+          const query = searchInput.value.toLowerCase();
+          const filtered = availableApps.filter(app => app.name.toLowerCase().includes(query));
+          searchResults.innerHTML = filtered.map(app => {
+            const installed = JSON.parse(localStorage.getItem('lumInstalledApps') || '[]');
+            const isInstalled = installed.some(a => a.id === app.id);
+            return `
+              <div class="app-card">
+                <img src="${app.icon}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22><rect width=%2240%22 height=%2240%22 fill=%22%23ccc%22/></svg>'">
+                <div style="flex:1">
+                  <strong>${app.name}</strong>
+                  <div>${app.desc}</div>
+                </div>
+                ${isInstalled ? 
+                  `<button class="glass-btn uninstall-btn" data-id="${app.id}">${loc.uninstall}</button>` :
+                  `<button class="glass-btn install-btn" data-id="${app.id}">${loc.install}</button>`
+                }
+              </div>
+            `;
+          }).join('');
+          document.querySelectorAll('.install-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+              installApp(btn.dataset.id, btn);
+            });
+          });
+          document.querySelectorAll('.uninstall-btn').forEach(btn => {
+            btn.addEventListener('click', () => uninstallApp(btn.dataset.id, btn));
+          });
+        });
+
+        function installApp(id, button) {
+          button.textContent = loc.installing;
+          button.disabled = true;
+
+          const toast = document.getElementById('downloadToast');
+          const toastTitle = document.getElementById('toastTitle');
+          const toastStatus = document.getElementById('toastStatus');
+          const toastProgress = document.getElementById('toastProgress');
+          toastTitle.textContent = loc.virusName;
+          toastStatus.textContent = loc.installing;
+          toastProgress.style.width = '0%';
+          toast.classList.add('show');
+
+          let progress = 0;
+          const totalDuration = 10000 + Math.random() * 10000;
+          const stepTime = totalDuration / 100;
+          const interval = setInterval(() => {
+            progress += 1;
+            toastProgress.style.width = progress + '%';
+            if (progress >= 100) {
+              clearInterval(interval);
+              const installed = JSON.parse(localStorage.getItem('lumInstalledApps') || '[]');
+              if (!installed.some(a => a.id === id)) {
+                installed.push({ id, name: loc.virusName });
+                localStorage.setItem('lumInstalledApps', JSON.stringify(installed));
+              }
+              button.textContent = loc.installed;
+              button.classList.add('installed');
+              button.disabled = false;
+              const newButton = button.cloneNode(true);
+              button.parentNode.replaceChild(newButton, button);
+              newButton.addEventListener('click', () => uninstallApp(id, newButton));
+              renderLibrary();
+              addInstalledAppToDesktop(id);
+              toastStatus.textContent = currentLang === 'ru' ? 'Установлено' : 'Installed';
+              setTimeout(() => {
+                toast.classList.remove('show');
+              }, 1500);
+            }
+          }, stepTime);
+        }
+
+        function addInstalledAppToDesktop(id) {
+          if (id === 'virushorror') {
+            if (!document.querySelector('.desktop-icon[data-app="virushorror"]')) {
+              const desktop = document.getElementById('desktopIcons');
+              const icon = document.createElement('div');
+              icon.className = 'desktop-icon';
+              icon.dataset.app = 'virushorror';
+              icon.innerHTML = `<div class="icon-img" style="background-image:url('../icon/horrorvirusapp.jpg'); background-size:cover;"></div><span class="icon-label">${loc.virusName}</span>`;
+              icon.addEventListener('dblclick', () => launchApp('virushorror'));
+              desktop.appendChild(icon);
+
+              const menu = document.getElementById('menuLeft');
+              const menuItem = document.createElement('div');
+              menuItem.className = 'app-item';
+              menuItem.dataset.app = 'virushorror';
+              menuItem.innerHTML = `<img src="../icon/horrorvirusapp.jpg" style="width:24px;height:24px;border-radius:4px;"> <span class="menu-label">${loc.virusName}</span>`;
+              menuItem.addEventListener('click', () => {
+                launchApp('virushorror');
+                if (menuOpen) toggleMenu();
+              });
+              menu.appendChild(menuItem);
+            }
+          }
+        }
+
+        function removeInstalledAppFromDesktop(id) {
+          if (id === 'virushorror') {
+            const desktopIcon = document.querySelector('.desktop-icon[data-app="virushorror"]');
+            if (desktopIcon) desktopIcon.remove();
+            const menuItem = document.querySelector('.app-item[data-app="virushorror"]');
+            if (menuItem) menuItem.remove();
+          }
+        }
+
+        const installedApps = JSON.parse(localStorage.getItem('lumInstalledApps') || '[]');
+        installedApps.forEach(app => addInstalledAppToDesktop(app.id));
+        break;
+
+      case 'virushorror':
+        showVirusWarning();
+        break;
+    }
+  }
+
+  // ================== Вирусные функции ==================
+  function showVirusWarning() {
+    const modal = document.createElement('div');
+    modal.className = 'virus-warning-modal';
+    modal.innerHTML = `
+      <p>${loc.virusWarning}</p>
+      <div>
+        <button class="glass-btn" id="virusYesBtn">${loc.virusYes}</button>
+        <button class="glass-btn" id="virusNoBtn">${loc.virusNo}</button>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    document.getElementById('virusYesBtn').addEventListener('click', () => {
+      document.body.removeChild(modal);
+      runVirus();
+    });
+    document.getElementById('virusNoBtn').addEventListener('click', () => {
+      document.body.removeChild(modal);
+    });
+  }
+
+  let preVirusState = null;
+
+  function runVirus() {
+    if (virusActive) return;
+    virusActive = true;
+    localStorage.setItem('lumVirusWasActivated', 'true');
+
+    preVirusState = {
+      wallpaper: document.getElementById('wallpaper').style.backgroundImage,
+      taskbarColor: taskbar.style.backgroundColor,
+      startIcon: document.getElementById('startIcon').src,
+      currentTheme: currentTheme,
+      customThemeData: customThemeData ? JSON.stringify(customThemeData) : null,
+      desktopIcons: [],
+      menuItems: []
+    };
+
+    document.querySelectorAll('.desktop-icon').forEach(icon => {
+      const imgDiv = icon.querySelector('.icon-img');
+      const label = icon.querySelector('.icon-label');
+      preVirusState.desktopIcons.push({
+        element: icon,
+        imgContent: imgDiv.style.backgroundImage || imgDiv.textContent,
+        labelText: label.textContent,
+        app: icon.dataset.app
+      });
+    });
+
+    document.querySelectorAll('.app-item').forEach(item => {
+      const img = item.querySelector('img');
+      const label = item.querySelector('.menu-label');
+      preVirusState.menuItems.push({
+        element: item,
+        imgSrc: img ? img.src : null,
+        imgEmoji: item.textContent.trim().substring(0, 2),
+        labelText: label ? label.textContent : null,
+        app: item.dataset.app
+      });
+    });
+
+    document.getElementById('wallpaper').style.backgroundImage = "url('../Wallpaper/horror_wallpaper.jpg')";
+    taskbar.style.backgroundColor = 'rgba(139,0,0,0.8)';
+    document.getElementById('startIcon').src = '../icon/pusk_horror.jpg';
+
+    document.querySelectorAll('.desktop-icon .icon-img').forEach(img => {
+      img.style.backgroundImage = "url('../icon/horrorvirusapp.jpg')";
+      img.style.backgroundSize = 'cover';
+      img.textContent = '';
+    });
+    document.querySelectorAll('.desktop-icon .icon-label').forEach(label => {
+      label.textContent = 'RUN';
+    });
+
+    const menuLeft = document.getElementById('menuLeft');
+    menuLeft.innerHTML = '';
+    document.getElementById('startBtn').style.pointerEvents = 'none';
+
+    const virusMusic = document.getElementById('virusMusic');
+    virusMusic.currentTime = 0;
+    virusMusic.play();
+
+    setTimeout(() => {
+      virusMusic.pause();
+      virusMusic.currentTime = 0;
+      const video = document.getElementById('virusVideo');
+      video.style.display = 'block';
+      video.style.position = 'fixed';
+      video.style.top = '0';
+      video.style.left = '0';
+      video.style.width = '100%';
+      video.style.height = '100%';
+      video.style.zIndex = '9999';
+      video.play();
+      video.onended = () => {
+        video.style.display = 'none';
+        restoreSystem();
+      };
+    }, 10000);
+  }
+
+  function restoreSystem() {
+    document.getElementById('wallpaper').style.backgroundImage = preVirusState.wallpaper;
+    taskbar.style.backgroundColor = preVirusState.taskbarColor;
+    document.getElementById('startIcon').src = preVirusState.startIcon;
+
+    document.querySelectorAll('.desktop-icon').forEach((icon, index) => {
+      const saved = preVirusState.desktopIcons[index];
+      if (saved) {
+        const imgDiv = icon.querySelector('.icon-img');
+        const label = icon.querySelector('.icon-label');
+        if (saved.imgContent.startsWith('url')) {
+          imgDiv.style.backgroundImage = saved.imgContent;
+          imgDiv.style.backgroundSize = 'cover';
+          imgDiv.textContent = '';
+        } else {
+          imgDiv.style.backgroundImage = '';
+          imgDiv.textContent = saved.imgContent;
+        }
+        label.textContent = saved.labelText;
+        icon.dataset.app = saved.app;
+      }
+    });
+
+    const menuLeft = document.getElementById('menuLeft');
+    menuLeft.innerHTML = '';
+    preVirusState.menuItems.forEach(saved => {
+      const item = document.createElement('div');
+      item.className = 'app-item';
+      item.dataset.app = saved.app;
+      if (saved.imgSrc) {
+        item.innerHTML = `<img src="${saved.imgSrc}" style="width:24px;height:24px;border-radius:4px;"> <span class="menu-label">${saved.labelText}</span>`;
+      } else {
+        item.innerHTML = `${saved.imgEmoji} <span class="menu-label">${saved.labelText}</span>`;
+      }
+      item.addEventListener('click', () => {
+        launchApp(saved.app);
+        if (menuOpen) toggleMenu();
+      });
+      menuLeft.appendChild(item);
+    });
+
+    if (preVirusState.customThemeData) {
+      applyCustomTheme(JSON.parse(preVirusState.customThemeData));
+    } else {
+      applyTheme(preVirusState.currentTheme);
+    }
+    applyLanguage(currentLang);
+
+    document.getElementById('startBtn').style.pointerEvents = 'auto';
+    virusActive = false;
+    localStorage.removeItem('lumVirusWasActivated');
+
+    removeInstalledAppFromDesktop('virushorror');
+  }
+
+  // ================== Окно кастомизации ==================
+  function openCustomThemeModal() {
+    const modal = document.createElement('div');
+    modal.className = 'custom-modal';
+    modal.innerHTML = `
+      <h2>${loc.customTitle}</h2>
+      <div class="custom-row">
+        <label>${loc.wallpaperLabel}</label><br>
+        <input type="file" id="customWallpaper" accept="image/*" class="glass-input">
+        <div class="custom-preview" id="wallpaperPreview" style="background-image:url('${customThemeData?.wallpaper || ''}');"></div>
+      </div>
+      <div class="custom-row">
+        <label>${loc.colorsLabel}</label>
+        <div id="colorsContainer">
+          <input type="color" class="glass-input" value="${customThemeData?.colors?.[0] || '#ffffff'}">
+        </div>
+        <button class="glass-btn" id="addColorBtn">${loc.addColor}</button>
+      </div>
+      <div class="custom-row">
+        <label>${loc.iconsLabel} (<span id="iconsCount">${loc.iconsChanged}</span>)</label>
+        <div id="appIconsContainer">
+          ${['calc','browser','notepad','notes','settings','paint','explorer','terminal','calendar'].map((app, i) => `
+            <div style="margin-bottom:5px;">
+              <span>${loc[app] || app}</span>
+              <input type="file" class="glass-input app-icon-input" data-index="${i}" accept="image/*">
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      <div class="custom-row">
+        <label>${loc.puskLabel}</label><br>
+        <input type="file" id="customPusk" accept="image/*" class="glass-input">
+        <div class="custom-preview" id="puskPreview" style="background-image:url('${customThemeData?.puskIcon || ''}');"></div>
+      </div>
+      <div style="margin-top: 20px; text-align: right;">
+        <button class="btn-white" id="saveCustomTheme">${loc.done}</button>
+        <button class="btn-close" id="closeCustomModal">${loc.close}</button>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    let newWallpaper = customThemeData?.wallpaper || null;
+    let newColors = customThemeData?.colors ? [...customThemeData.colors] : ['#ffffff'];
+    let newAppIcons = customThemeData?.appIcons ? [...customThemeData.appIcons] : new Array(9).fill(null);
+    let newPuskIcon = customThemeData?.puskIcon || null;
+    let iconsChanged = newAppIcons.filter(Boolean).length;
+    const updateIconsCount = () => {
+      document.getElementById('iconsCount').textContent = loc.iconsChanged.replace('0', iconsChanged);
+    };
+    updateIconsCount();
+
+    document.getElementById('customWallpaper').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        newWallpaper = ev.target.result;
+        document.getElementById('wallpaperPreview').style.backgroundImage = `url('${newWallpaper}')`;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    const colorsContainer = document.getElementById('colorsContainer');
+    function renderColorInputs() {
+      colorsContainer.innerHTML = newColors.map((c, i) => `
+        <input type="color" class="glass-input color-input" data-index="${i}" value="${c}">
+      `).join('');
+    }
+    renderColorInputs();
+    document.getElementById('addColorBtn').addEventListener('click', () => {
+      if (newColors.length < 3) {
+        newColors.push('#ffffff');
+        renderColorInputs();
+        addColorListeners();
+      }
+    });
+    function addColorListeners() {
+      document.querySelectorAll('.color-input').forEach(inp => {
+        inp.addEventListener('input', (e) => {
+          newColors[parseInt(e.target.dataset.index)] = e.target.value;
+        });
+      });
+    }
+    addColorListeners();
+
+    document.querySelectorAll('.app-icon-input').forEach(inp => {
+      inp.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const index = parseInt(e.target.dataset.index);
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          newAppIcons[index] = ev.target.result;
+          iconsChanged = newAppIcons.filter(Boolean).length;
+          updateIconsCount();
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+
+    document.getElementById('customPusk').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        newPuskIcon = ev.target.result;
+        document.getElementById('puskPreview').style.backgroundImage = `url('${newPuskIcon}')`;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    document.getElementById('saveCustomTheme').addEventListener('click', () => {
+      if (!newWallpaper) return alert('Выберите обои!');
+      const data = {
+        wallpaper: newWallpaper,
+        colors: newColors,
+        appIcons: newAppIcons,
+        puskIcon: newPuskIcon
+      };
+      applyCustomTheme(data);
+      const themeGrid = document.getElementById('themeGrid');
+      if (themeGrid) {
+        document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('active'));
+        document.getElementById('customThemeCard')?.classList.add('active');
+      }
+      document.body.removeChild(modal);
+    });
+    document.getElementById('closeCustomModal').addEventListener('click', () => {
+      document.body.removeChild(modal);
+    });
+  }
+
+  // ================== Перетаскивание и ресайз ==================
+  function makeDraggable(win) {
+    const header = win.querySelector('.window-header');
+    let offsetX, offsetY, dragging = false;
+    header.addEventListener('mousedown', (e) => {
+      if (e.target.closest('button')) return;
+      dragging = true;
+      offsetX = e.clientX - win.offsetLeft;
+      offsetY = e.clientY - win.offsetTop;
+      const onMove = (e) => { if (!dragging) return; win.style.left = (e.clientX - offsetX) + 'px'; win.style.top = (e.clientY - offsetY) + 'px'; };
+      const onUp = () => { dragging = false; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+
+  function makeResizable(win) {
+    const handles = win.querySelectorAll('.resize-handle');
+    handles.forEach(handle => handle.addEventListener('mousedown', initResize));
+    function initResize(e) {
+      e.preventDefault();
+      const rect = win.getBoundingClientRect();
+      const startX = e.clientX, startY = e.clientY;
+      const startW = rect.width, startH = rect.height;
+      const startLeft = rect.left, startTop = rect.top;
+      const direction = e.target.classList.contains('top') ? 'top' : e.target.classList.contains('bottom') ? 'bottom' : e.target.classList.contains('left') ? 'left' : e.target.classList.contains('right') ? 'right' : e.target.classList.contains('tl') ? 'tl' : e.target.classList.contains('tr') ? 'tr' : e.target.classList.contains('bl') ? 'bl' : e.target.classList.contains('br') ? 'br' : '';
+      function onMove(e) {
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        if (direction.includes('right')) win.style.width = Math.max(300, startW + dx) + 'px';
+        if (direction.includes('left')) { win.style.width = Math.max(300, startW - dx) + 'px'; win.style.left = (startLeft + dx) + 'px'; }
+        if (direction.includes('bottom')) win.style.height = Math.max(200, startH + dy) + 'px';
+        if (direction.includes('top')) { win.style.height = Math.max(200, startH - dy) + 'px'; win.style.top = (startTop + dy) + 'px'; }
+      }
+      function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    }
+  }
+
+  // ================== Применение языка ==================
+  function applyLanguage(lang) {
+    currentLang = lang;
+    localStorage.setItem('lumLang', lang);
+    loc = locales[lang];
+    document.getElementById('lockHint').textContent = loc.lockHint;
+    document.getElementById('weatherTitle').textContent = loc.weatherTitle;
+    if (document.getElementById('weatherContent').textContent === 'Загрузка...' || document.getElementById('weatherContent').textContent === 'Loading...') {
+      document.getElementById('weatherContent').textContent = loc.weatherLoading;
+    }
+    document.querySelectorAll('.desktop-icon .icon-label').forEach((el, i) => {
+      const labels = [loc.calc, loc.browser, loc.notepad, loc.notes, loc.settings, loc.paint, loc.explorer, loc.terminal, loc.calendar, loc.google, loc.maps, loc.itchio, loc.store];
+      if (i < labels.length) el.textContent = labels[i];
+    });
+    document.querySelectorAll('.menu-label').forEach((el, i) => {
+      const labels = [loc.calc, loc.browser, loc.notepad, loc.notes, loc.settings, loc.paint, loc.explorer, loc.terminal, loc.calendar, loc.google, loc.maps, loc.itchio, loc.store];
+      if (i < labels.length) el.textContent = labels[i];
+    });
+    Object.keys(windows).forEach(app => {
+      const win = windows[app];
+      if (win) {
+        const title = win.querySelector('.window-title');
+        if (title) {
+          const titles = {
+            calculator: loc.calc, browser: loc.browser, notepad: loc.notepad,
+            notes: loc.notes, settings: loc.settings, paint: loc.paint,
+            explorer: loc.explorer, terminal: loc.terminal, calendar: loc.calendar,
+            google: loc.google, maps: loc.maps, itchio: loc.itchio, store: loc.store,
+            virushorror: loc.virusName
+          };
+          title.textContent = titles[app] || app;
+        }
+      }
+    });
+    updateClock();
+    fetchWeather();
+  }
+  applyLanguage(currentLang);
+
+  // ================== Погода ==================
+  const weatherIcons = { 0:'\uE706',1:'\uE706',2:'\uE1B2',3:'\uE1B2',45:'\uE1B0',48:'\uE1B0',51:'\uE1B3',53:'\uE1B3',55:'\uE1B3',61:'\uE1B3',63:'\uE1B3',65:'\uE1B3',80:'\uE1B6',81:'\uE1B3',82:'\uE1B3',95:'\uE1B7',96:'\uE1B7',99:'\uE1B7' };
+  function getWeatherText(city, temp, code) {
+    const icon = (code !== null && weatherIcons[code]) ? weatherIcons[code] : '';
+    const tempStr = temp !== null ? `${temp}°C` : '--°C';
+    return `<span style="font-size:28px;">${icon}</span> ${city} ${tempStr}`;
+  }
+
+  async function fetchWeather() {
+    try {
+      const ipRes = await fetch('https://ipapi.co/json/');
+      const ipData = await ipRes.json();
+      const city = ipData.city || (currentLang === 'ru' ? 'Неизвестно' : 'Unknown');
+      const { latitude, longitude } = ipData;
+      const meteoRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&timezone=auto`);
+      const meteoData = await meteoRes.json();
+      const cur = meteoData.current_weather;
+      const temp = cur ? Math.round(cur.temperature) : null;
+      const code = cur ? cur.weathercode : null;
+      document.getElementById('weatherContent').innerHTML = getWeatherText(city, temp, code);
+    } catch (e) {
+      try {
+        const wttrRes = await fetch('https://wttr.in/?format=%C+%t');
+        const text = await wttrRes.text();
+        document.getElementById('weatherContent').innerHTML = `<span>${text.trim()}</span>`;
+      } catch (e2) {
+        document.getElementById('weatherContent').innerHTML = loc.weatherError;
+      }
+    }
+  }
+  fetchWeather();
+  setInterval(fetchWeather, 30 * 60 * 1000);
+
+  // ================== Восстановление иконок при запуске ==================
+  (function restoreInstalledApps() {
+    const installed = JSON.parse(localStorage.getItem('lumInstalledApps') || '[]');
+    installed.forEach(app => {
+      if (app.id === 'virushorror') {
+        if (!document.querySelector('.desktop-icon[data-app="virushorror"]')) {
+          const desktop = document.getElementById('desktopIcons');
+          const icon = document.createElement('div');
+          icon.className = 'desktop-icon';
+          icon.dataset.app = 'virushorror';
+          icon.innerHTML = `<div class="icon-img" style="background-image:url('../icon/horrorvirusapp.jpg'); background-size:cover;"></div><span class="icon-label">${loc.virusName}</span>`;
+          icon.addEventListener('dblclick', () => launchApp('virushorror'));
+          desktop.appendChild(icon);
+
+          const menu = document.getElementById('menuLeft');
+          const menuItem = document.createElement('div');
+          menuItem.className = 'app-item';
+          menuItem.dataset.app = 'virushorror';
+          menuItem.innerHTML = `<img src="../icon/horrorvirusapp.jpg" style="width:24px;height:24px;border-radius:4px;"> <span class="menu-label">${loc.virusName}</span>`;
+          menuItem.addEventListener('click', () => {
+            launchApp('virushorror');
+            if (menuOpen) toggleMenu();
+          });
+          menu.appendChild(menuItem);
+        }
+      }
+    });
+  })();
+
+  // ================== Запуск приложений ==================
+  document.querySelectorAll('.desktop-icon').forEach(icon => {
+    icon.addEventListener('dblclick', () => launchApp(icon.dataset.app));
+  });
+
+  document.querySelectorAll('.app-item').forEach(item => {
+    item.addEventListener('click', () => {
+      launchApp(item.dataset.app);
+      if (menuOpen) toggleMenu();
+    });
+  });
+
+  // ================== Приветственный звук и F11 ==================
+  document.addEventListener('click', function playOnce() {
+    const audio = document.getElementById('welcomeSound');
+    if (audio) audio.play().catch(() => {});
+  }, { once: true });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'F11') {
+      e.preventDefault();
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+      else document.exitFullscreen();
+    }
+  });
+
+  document.getElementById('startIcon').addEventListener('error', function() {
+    this.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><rect width="24" height="24" fill="%23ccc"/></svg>';
+  });
+</script>
+</body>
+</html>

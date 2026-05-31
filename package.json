@@ -1,0 +1,25 @@
+{
+  "name": "lumina",
+  "version": "1.0.0",
+  "description": "Lumina OS Simulator – современный стеклянный интерфейс",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^29.0.0",
+    "electron-builder": "^26.8.1"
+  },
+  "build": {
+    "appId": "com.lumina.os",
+    "productName": "Lumina",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "icon/pusk_theme1.jpg"
+    }
+  }
+}
