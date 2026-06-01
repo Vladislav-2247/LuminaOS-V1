@@ -308,7 +308,7 @@
       display: flex; justify-content: space-between; align-items: center;
     }
 
-    /* Стили для модального окна кастомизации (тем) */
+    /* Стили модального окна кастомизации (исправлены) */
     .custom-modal {
       position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
       width: 500px; max-height: 80vh; overflow-y: auto;
@@ -332,6 +332,61 @@
     .btn-close {
       background: rgba(255,255,255,0.3); color: white; border: none;
       padding: 10px 20px; border-radius: 8px; cursor: pointer;
+    }
+
+    /* Игры */
+    .game-board {
+      display: grid; gap: 4px; justify-content: center; margin: 15px 0;
+    }
+    .game-cell {
+      background: rgba(255,255,255,0.4); backdrop-filter: blur(10px);
+      border-radius: 12px; display: flex; align-items: center;
+      justify-content: center; font-size: 32px; font-weight: bold;
+      cursor: pointer; transition: 0.2s; aspect-ratio: 1;
+    }
+    .game-cell:hover { background: rgba(255,255,255,0.6); }
+    .game-cell.x { color: #0078d4; }
+    .game-cell.o { color: #d40000; }
+
+    .snake-board {
+      display: grid; gap: 2px; justify-content: center; margin: 15px auto;
+    }
+    .snake-cell {
+      background: rgba(255,255,255,0.3); border-radius: 4px; aspect-ratio: 1;
+    }
+    .snake-cell.food { background: #ff4444; border-radius: 50%; }
+    .snake-cell.snake { background: #44ff44; border-radius: 6px; }
+    .snake-cell.head { background: #00aa00; border-radius: 8px; }
+
+    /* Кнопка выхода из полноэкранного режима (только внутри webview) */
+    .exit-fullscreen-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 9999;
+      background: rgba(255, 255, 255, 0.3);
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      border-radius: 12px;
+      padding: 8px 16px;
+      color: white;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      display: none;
+      transition: 0.2s;
+    }
+    .exit-fullscreen-btn:hover {
+      background: rgba(255, 255, 255, 0.5);
+    }
+
+    .image-viewer {
+      display: flex; align-items: center; justify-content: center; height: 100%;
+    }
+    .image-viewer img {
+      max-width: 100%; max-height: 100%; object-fit: contain;
+      border-radius: 12px;
     }
   </style>
 </head>
@@ -358,6 +413,9 @@
   <div class="desktop-icon" data-app="maps"><div class="icon-img">🗺️</div><span class="icon-label">Карты</span></div>
   <div class="desktop-icon" data-app="itchio"><div class="icon-img">🎮</div><span class="icon-label">itch.io</span></div>
   <div class="desktop-icon" data-app="store"><div class="icon-img">🛒</div><span class="icon-label">Lumina App</span></div>
+  <div class="desktop-icon" data-app="tictactoe"><div class="icon-img">❌</div><span class="icon-label">Крестики-нолики</span></div>
+  <div class="desktop-icon" data-app="snake"><div class="icon-img">🐍</div><span class="icon-label">Змейка</span></div>
+  <div class="desktop-icon" data-app="gameonline"><div class="icon-img">🕹️</div><span class="icon-label">Game Online</span></div>
 </div>
 
 <div class="taskbar" id="taskbar">
@@ -387,6 +445,9 @@
     <div class="app-item" data-app="maps">🗺️ <span class="menu-label">Карты</span></div>
     <div class="app-item" data-app="itchio">🎮 <span class="menu-label">itch.io</span></div>
     <div class="app-item" data-app="store">🛒 <span class="menu-label">Lumina App</span></div>
+    <div class="app-item" data-app="tictactoe">❌ <span class="menu-label">Крестики-нолики</span></div>
+    <div class="app-item" data-app="snake">🐍 <span class="menu-label">Змейка</span></div>
+    <div class="app-item" data-app="gameonline">🕹️ <span class="menu-label">Game Online</span></div>
   </div>
   <div class="menu-right">
     <div style="padding: 12px; color: white; text-shadow: 0 1px 3px black;">
@@ -424,6 +485,14 @@
 
 <script>
   const { ipcRenderer } = require('electron');
+  const path = require('path');
+  const fs = require('fs');
+
+  // Создаём папку Downloads в проекте, если её нет
+  const downloadsDir = path.join(__dirname, '..', '..', 'Downloads');
+  if (!fs.existsSync(downloadsDir)) {
+    fs.mkdirSync(downloadsDir);
+  }
 
   // ================== Локализация ==================
   const locales = {
@@ -433,14 +502,15 @@
       calc: "Калькулятор", browser: "Браузер", notepad: "Блокнот", notes: "Записи",
       settings: "Настройки", paint: "Paint", explorer: "Проводник", terminal: "Терминал",
       calendar: "Календарь", google: "Google", maps: "Карты", itchio: "itch.io",
-      store: "Lumina App", startMenu: "Пуск",
+      store: "Lumina App", tictactoe: "Крестики-нолики", snake: "Змейка",
+      gameonline: "Game Online", startMenu: "Пуск",
       prevMonth: "←", nextMonth: "→", addEvent: "Добавить", eventPlaceholder: "Добавить событие...",
       noEvents: "нет", eventsOn: "События на",
-      downloads: "Загрузки", images: "Изображения", videos: "Видео", music: "Музыка",
+      downloads: "Загрузки", images: "Изображения", videos: "Видео", musicCategory: "Музыка",
       documents: "Документы", games: "Игры", myComputer: "Мой компьютер",
       chooseCategory: "Выберите категорию", emptyFolder: "(пока пусто)",
       searchGames: "Поиск игр...",
-      noGames: "Игры не найдены. Убедитесь, что установлены Steam/Epic/GOG в стандартные папки.",
+      noGames: "Игры не найдены.",
       launchGame: "Запустить", launchingGame: "Запускается...",
       diskLabel: "Диск C:", diskFree: "свободно", diskUsed: "занято",
       terminalWelcome: "Lumina Terminal [версия 1.0.0]",
@@ -469,6 +539,9 @@
       virusYes: "Да", virusNo: "Отмена",
       virusErrorTitle: "Ошибка",
       virusErrorMessage: "Этот вирус уже был активирован. Повторный запуск невозможен.",
+      tttTurn: "Ваш ход", tttWin: "Вы выиграли!", tttLose: "Бот выиграл!", tttDraw: "Ничья!",
+      tttReset: "Новая игра", snakeScore: "Счёт: ", snakeGameOver: "Игра окончена! Счёт: ",
+      snakeRestart: "Заново",
     },
     en: {
       lockHint: "Press Enter or click to log in",
@@ -476,14 +549,15 @@
       calc: "Calculator", browser: "Browser", notepad: "Notepad", notes: "Notes",
       settings: "Settings", paint: "Paint", explorer: "Explorer", terminal: "Terminal",
       calendar: "Calendar", google: "Google", maps: "Maps", itchio: "itch.io",
-      store: "Lumina App", startMenu: "Start",
+      store: "Lumina App", tictactoe: "Tic-Tac-Toe", snake: "Snake",
+      gameonline: "Game Online", startMenu: "Start",
       prevMonth: "←", nextMonth: "→", addEvent: "Add", eventPlaceholder: "Add event...",
       noEvents: "none", eventsOn: "Events on",
-      downloads: "Downloads", images: "Pictures", videos: "Videos", music: "Music",
+      downloads: "Downloads", images: "Pictures", videos: "Videos", musicCategory: "Music",
       documents: "Documents", games: "Games", myComputer: "My Computer",
       chooseCategory: "Choose a category", emptyFolder: "(empty)",
       searchGames: "Searching for games...",
-      noGames: "No games found. Make sure Steam/Epic/GOG are installed in standard folders.",
+      noGames: "No games found.",
       launchGame: "Launch", launchingGame: "Launching...",
       diskLabel: "Disk C:", diskFree: "free", diskUsed: "used",
       terminalWelcome: "Lumina Terminal [version 1.0.0]",
@@ -512,6 +586,9 @@
       virusYes: "Yes", virusNo: "Cancel",
       virusErrorTitle: "Error",
       virusErrorMessage: "This virus has already been activated. Cannot run again.",
+      tttTurn: "Your turn", tttWin: "You win!", tttLose: "Bot wins!", tttDraw: "Draw!",
+      tttReset: "New Game", snakeScore: "Score: ", snakeGameOver: "Game Over! Score: ",
+      snakeRestart: "Restart",
     }
   };
 
@@ -657,9 +734,10 @@
       notes: loc.notes, settings: loc.settings, paint: loc.paint,
       explorer: loc.explorer, terminal: loc.terminal, calendar: loc.calendar,
       google: loc.google, maps: loc.maps, itchio: loc.itchio, store: loc.store,
-      virushorror: loc.virusName
+      virushorror: loc.virusName, tictactoe: loc.tictactoe, snake: loc.snake,
+      gameonline: loc.gameonline
     };
-    const isWebViewApp = ['browser', 'google', 'maps', 'itchio'].includes(appName);
+    const isWebViewApp = ['browser', 'google', 'maps', 'itchio', 'gameonline'].includes(appName);
     const win = document.createElement('div');
     win.className = 'window active';
     win.dataset.app = appName;
@@ -675,12 +753,10 @@
         </div>
       </div>
       <div class="window-body" id="body-${appName}"></div>
-      ${!isWebViewApp ? `
-        <div class="resize-handle top"></div><div class="resize-handle bottom"></div>
-        <div class="resize-handle left"></div><div class="resize-handle right"></div>
-        <div class="resize-handle corner tl"></div><div class="resize-handle corner tr"></div>
-        <div class="resize-handle corner bl"></div><div class="resize-handle corner br"></div>
-      ` : ''}
+      <div class="resize-handle top"></div><div class="resize-handle bottom"></div>
+      <div class="resize-handle left"></div><div class="resize-handle right"></div>
+      <div class="resize-handle corner tl"></div><div class="resize-handle corner tr"></div>
+      <div class="resize-handle corner bl"></div><div class="resize-handle corner br"></div>
     `;
     document.body.appendChild(win);
     windows[appName] = win;
@@ -690,7 +766,8 @@
     fillAppBody(appName, body);
     win.querySelector('.close-btn').addEventListener('click', () => closeApp(appName));
     makeDraggable(win);
-    if (!isWebViewApp) makeResizable(win);
+    // Ресайз разрешён для всех, кроме окна кастомизации (оно открывается отдельно)
+    makeResizable(win);
 
     win.style.transform = 'scale(0.8)';
     win.style.opacity = '0';
@@ -731,7 +808,8 @@
     const emojiMap = {
       calculator: '🧮', browser: '🌐', notepad: '📝', notes: '📒',
       settings: '⚙️', paint: '🎨', explorer: '📁', terminal: '⬛', calendar: '📅',
-      google: '🔍', maps: '🗺️', itchio: '🎮', store: '🛒', virushorror: '🦠'
+      google: '🔍', maps: '🗺️', itchio: '🎮', store: '🛒', virushorror: '🦠',
+      tictactoe: '❌', snake: '🐍', gameonline: '🕹️'
     };
     icon.innerHTML = (emojiMap[appName] || '📄') + '<div class="indicator"></div>';
     icon.addEventListener('click', () => {
@@ -810,6 +888,40 @@
         document.getElementById('browserForward').addEventListener('click', () => webview.goForward());
         document.getElementById('browserRefresh').addEventListener('click', () => webview.reload());
         webview.addEventListener('did-navigate', (e) => { urlInput.value = e.url; });
+
+        // Перехват загрузок в браузере
+        webview.addEventListener('will-download', async (event) => {
+          event.preventDefault();
+          const url = event.url;
+          const fileName = url.split('/').pop().split('?')[0] || 'download';
+          const confirmed = confirm(`Скачать файл "${fileName}"?`);
+          if (!confirmed) return;
+          const toast = document.getElementById('downloadToast');
+          const toastTitle = document.getElementById('toastTitle');
+          const toastStatus = document.getElementById('toastStatus');
+          const toastProgress = document.getElementById('toastProgress');
+          toastTitle.textContent = fileName;
+          toastStatus.textContent = 'Скачивание...';
+          toastProgress.style.width = '0%';
+          toast.classList.add('show');
+
+          try {
+            const result = await ipcRenderer.invoke('download-file', { url, fileName });
+            if (result.success) {
+              toastStatus.textContent = `Скачано (${(result.size / 1024 / 1024).toFixed(1)} MB)`;
+              toastProgress.style.width = '100%';
+              // Обновим занятое место в проводнике, если он открыт
+              if (windows['explorer']) {
+                fillAppBody('explorer', document.getElementById('body-explorer'));
+              }
+            } else {
+              toastStatus.textContent = 'Ошибка скачивания';
+            }
+          } catch (e) {
+            toastStatus.textContent = 'Ошибка';
+          }
+          setTimeout(() => toast.classList.remove('show'), 2000);
+        });
         break;
 
       case 'notepad':
@@ -1014,7 +1126,7 @@
               <button class="glass-btn" data-page="downloads" style="width:100%; margin-bottom:5px;">📥 ${loc.downloads}</button>
               <button class="glass-btn" data-page="images" style="width:100%; margin-bottom:5px;">🖼️ ${loc.images}</button>
               <button class="glass-btn" data-page="videos" style="width:100%; margin-bottom:5px;">🎬 ${loc.videos}</button>
-              <button class="glass-btn" data-page="music" style="width:100%; margin-bottom:5px;">🎵 ${loc.music}</button>
+              <button class="glass-btn" data-page="music" style="width:100%; margin-bottom:5px;">🎵 ${loc.musicCategory}</button>
               <button class="glass-btn" data-page="documents" style="width:100%; margin-bottom:5px;">📄 ${loc.documents}</button>
               <button class="glass-btn" data-page="games" style="width:100%; margin-bottom:5px;">🎮 ${loc.games}</button>
               <button class="glass-btn" data-page="mycomputer" style="width:100%; margin-top:auto;">💻 ${loc.myComputer}</button>
@@ -1027,12 +1139,69 @@
           const btn = e.target.closest('.glass-btn');
           if (!btn) return;
           const page = btn.dataset.page;
+          const homeDir = require('os').homedir();
+          let targetPath = '';
           switch (page) {
-            case 'downloads': cont.innerHTML = `<p>📥 ${loc.downloads} ${loc.emptyFolder}</p>`; break;
-            case 'images': cont.innerHTML = `<p>🖼️ ${loc.images} ${loc.emptyFolder}</p>`; break;
-            case 'videos': cont.innerHTML = `<p>🎬 ${loc.videos} ${loc.emptyFolder}</p>`; break;
-            case 'music': cont.innerHTML = `<p>🎵 ${loc.music} ${loc.emptyFolder}</p>`; break;
-            case 'documents': cont.innerHTML = `<p>📄 ${loc.documents} ${loc.emptyFolder}</p>`; break;
+            case 'downloads':
+              cont.innerHTML = '<p>Загрузка...</p>';
+              const downloads = await ipcRenderer.invoke('get-downloads');
+              if (downloads.length === 0) {
+                cont.innerHTML = `<p>${loc.emptyFolder}</p>`;
+              } else {
+                cont.innerHTML = downloads.map(f => {
+                  const ext = f.name.split('.').pop().toLowerCase();
+                  let icon = '📄';
+                  if (['jpg','jpeg','png','gif'].includes(ext)) icon = '🖼️';
+                  else if (ext === 'html') icon = '🌐';
+                  else if (ext === 'mp3') icon = '🎵';
+                  else if (ext === 'txt') icon = '📝';
+                  else if (ext === 'exe') icon = '⚙️';
+                  return `<div class="download-item" data-path="${f.path.replace(/\\/g, '\\\\')}" data-name="${f.name}" style="cursor:pointer; display:flex; align-items:center; gap:8px; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.1);">
+                    <span>${icon}</span>
+                    <span>${f.name}</span>
+                    <span style="margin-left:auto; opacity:0.7;">${(f.size / 1024).toFixed(1)} KB</span>
+                  </div>`;
+                }).join('');
+                // Обработчик клика – запуск файла
+                document.querySelectorAll('.download-item').forEach(item => {
+                  item.addEventListener('dblclick', () => {
+                    const filePath = item.dataset.path;
+                    const fileName = item.dataset.name;
+                    const ext = fileName.split('.').pop().toLowerCase();
+                    if (ext === 'txt') {
+                      launchApp('notepad');
+                      setTimeout(() => {
+                        const notepadWindow = windows['notepad'];
+                        if (notepadWindow) {
+                          const textarea = notepadWindow.querySelector('#notepadArea');
+                          if (textarea) {
+                            fetch(`file:///${filePath.replace(/\\/g, '/')}`).then(res => res.text()).then(t => {
+                              textarea.value = t;
+                            });
+                          }
+                        }
+                      }, 500);
+                    } else if (['jpg','jpeg','png','gif'].includes(ext)) {
+                      const viewer = window.open('', '_blank');
+                      viewer.document.write(`<img src="file:///${filePath.replace(/\\/g, '/')}" style="max-width:100%;">`);
+                    } else if (ext === 'html') {
+                      window.open(`file:///${filePath.replace(/\\/g, '/')}`);
+                    } else if (ext === 'mp3') {
+                      const audio = new Audio(`file:///${filePath.replace(/\\/g, '/')}`);
+                      audio.play();
+                    } else if (ext === 'exe') {
+                      if (confirm('Запустить исполняемый файл?')) {
+                        ipcRenderer.invoke('launch-game', filePath);
+                      }
+                    }
+                  });
+                });
+              }
+              break;
+            case 'images': targetPath = homeDir + '\\Pictures'; break;
+            case 'videos': targetPath = homeDir + '\\Videos'; break;
+            case 'music': targetPath = homeDir + '\\Music'; break;
+            case 'documents': targetPath = homeDir + '\\Documents'; break;
             case 'games':
               cont.innerHTML = `<p>${loc.searchGames}</p>`;
               try {
@@ -1060,18 +1229,37 @@
               } catch (err) {
                 cont.innerHTML = `<p>${loc.weatherError}</p>`;
               }
-              break;
+              return;
             case 'mycomputer':
+              const downloadsForDisk = await ipcRenderer.invoke('get-downloads');
+              let usedSpace = 10 * 1024 * 1024 * 1024; // 10 ГБ базово
+              downloadsForDisk.forEach(f => usedSpace += f.size);
+              const usedGB = (usedSpace / (1024 * 1024 * 1024)).toFixed(1);
               cont.innerHTML = `
                 <div class="my-pc-info">
                   <h3>${loc.myComputer}</h3>
-                  <p><strong>${loc.diskLabel}</strong> 264 GB (${loc.diskFree} 254 GB, ${loc.diskUsed} 10 GB)</p>
+                  <p><strong>${loc.diskLabel}</strong> 264 GB (${loc.diskFree} ${(264 - usedGB).toFixed(1)} GB, ${loc.diskUsed} ${usedGB} GB)</p>
                   <div style="background: #e0e0e0; width: 100%; height: 20px; border-radius: 10px;">
-                    <div style="background: #0078d4; width: 3.8%; height: 100%; border-radius: 10px;"></div>
+                    <div style="background: #0078d4; width: ${(usedSpace / (264 * 1024 * 1024 * 1024) * 100).toFixed(1)}%; height: 100%; border-radius: 10px;"></div>
                   </div>
                 </div>
               `;
-              break;
+              return;
+            default: return;
+          }
+          if (targetPath) {
+            cont.innerHTML = `<p>Загрузка...</p>`;
+            const files = await ipcRenderer.invoke('list-files', targetPath);
+            if (files.length === 0) {
+              cont.innerHTML = `<p>${loc.emptyFolder}</p>`;
+            } else {
+              cont.innerHTML = files.map(f => `
+                <div style="display:flex; align-items:center; gap:8px; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.1);">
+                  <span>${f.isDirectory ? '📁' : '📄'}</span>
+                  <span>${f.name}</span>
+                </div>
+              `).join('');
+            }
           }
         });
         break;
@@ -1289,7 +1477,7 @@
           }
           libraryList.innerHTML = installed.map(app => `
             <div class="app-card">
-              <img src="../icon/horrorvirusapp.jpg" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22><rect width=%2240%22 height=%2240%22 fill=%22%23ccc%22/></svg>'">
+              <img src="${app.icon}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22><rect width=%2240%22 height=%2240%22 fill=%22%23ccc%22/></svg>'">
               <div style="flex:1">
                 <strong>${app.name}</strong>
                 <div>${loc.installed}</div>
@@ -1357,7 +1545,8 @@
           const toastTitle = document.getElementById('toastTitle');
           const toastStatus = document.getElementById('toastStatus');
           const toastProgress = document.getElementById('toastProgress');
-          toastTitle.textContent = loc.virusName;
+          const app = availableApps.find(a => a.id === id);
+          toastTitle.textContent = app.name;
           toastStatus.textContent = loc.installing;
           toastProgress.style.width = '0%';
           toast.classList.add('show');
@@ -1372,7 +1561,7 @@
               clearInterval(interval);
               const installed = JSON.parse(localStorage.getItem('lumInstalledApps') || '[]');
               if (!installed.some(a => a.id === id)) {
-                installed.push({ id, name: loc.virusName });
+                installed.push({ id, name: app.name, icon: app.icon });
                 localStorage.setItem('lumInstalledApps', JSON.stringify(installed));
               }
               button.textContent = loc.installed;
@@ -1392,37 +1581,34 @@
         }
 
         function addInstalledAppToDesktop(id) {
-          if (id === 'virushorror') {
-            if (!document.querySelector('.desktop-icon[data-app="virushorror"]')) {
-              const desktop = document.getElementById('desktopIcons');
-              const icon = document.createElement('div');
-              icon.className = 'desktop-icon';
-              icon.dataset.app = 'virushorror';
-              icon.innerHTML = `<div class="icon-img" style="background-image:url('../icon/horrorvirusapp.jpg'); background-size:cover;"></div><span class="icon-label">${loc.virusName}</span>`;
-              icon.addEventListener('dblclick', () => launchApp('virushorror'));
-              desktop.appendChild(icon);
+          const app = availableApps.find(a => a.id === id);
+          if (!document.querySelector(`.desktop-icon[data-app="${id}"]`)) {
+            const desktop = document.getElementById('desktopIcons');
+            const icon = document.createElement('div');
+            icon.className = 'desktop-icon';
+            icon.dataset.app = id;
+            icon.innerHTML = `<div class="icon-img" style="background-image:url('${app.icon}'); background-size:cover;"></div><span class="icon-label">${app.name}</span>`;
+            icon.addEventListener('dblclick', () => launchApp(id));
+            desktop.appendChild(icon);
 
-              const menu = document.getElementById('menuLeft');
-              const menuItem = document.createElement('div');
-              menuItem.className = 'app-item';
-              menuItem.dataset.app = 'virushorror';
-              menuItem.innerHTML = `<img src="../icon/horrorvirusapp.jpg" style="width:24px;height:24px;border-radius:4px;"> <span class="menu-label">${loc.virusName}</span>`;
-              menuItem.addEventListener('click', () => {
-                launchApp('virushorror');
-                if (menuOpen) toggleMenu();
-              });
-              menu.appendChild(menuItem);
-            }
+            const menu = document.getElementById('menuLeft');
+            const menuItem = document.createElement('div');
+            menuItem.className = 'app-item';
+            menuItem.dataset.app = id;
+            menuItem.innerHTML = `<img src="${app.icon}" style="width:24px;height:24px;border-radius:4px;"> <span class="menu-label">${app.name}</span>`;
+            menuItem.addEventListener('click', () => {
+              launchApp(id);
+              if (menuOpen) toggleMenu();
+            });
+            menu.appendChild(menuItem);
           }
         }
 
         function removeInstalledAppFromDesktop(id) {
-          if (id === 'virushorror') {
-            const desktopIcon = document.querySelector('.desktop-icon[data-app="virushorror"]');
-            if (desktopIcon) desktopIcon.remove();
-            const menuItem = document.querySelector('.app-item[data-app="virushorror"]');
-            if (menuItem) menuItem.remove();
-          }
+          const desktopIcon = document.querySelector(`.desktop-icon[data-app="${id}"]`);
+          if (desktopIcon) desktopIcon.remove();
+          const menuItem = document.querySelector(`.app-item[data-app="${id}"]`);
+          if (menuItem) menuItem.remove();
         }
 
         const installedApps = JSON.parse(localStorage.getItem('lumInstalledApps') || '[]');
@@ -1432,7 +1618,362 @@
       case 'virushorror':
         showVirusWarning();
         break;
+
+      // ---- ИГРЫ ----
+      case 'tictactoe':
+        body.innerHTML = `
+          <div style="text-align:center;">
+            <h3 style="margin-bottom:10px;" id="tttStatus">${loc.tttTurn}</h3>
+            <div class="game-board" id="tttBoard" style="grid-template-columns: repeat(3, 80px);"></div>
+            <button class="glass-btn" id="tttReset">${loc.tttReset}</button>
+          </div>
+        `;
+        let board = ['', '', '', '', '', '', '', '', ''];
+        let currentPlayer = 'X';
+        let gameOver = false;
+        const statusDiv = document.getElementById('tttStatus');
+        const boardDiv = document.getElementById('tttBoard');
+
+        function renderBoard() {
+          boardDiv.innerHTML = '';
+          board.forEach((cell, i) => {
+            const cellDiv = document.createElement('div');
+            cellDiv.className = 'game-cell';
+            if (cell === 'X') cellDiv.classList.add('x');
+            if (cell === 'O') cellDiv.classList.add('o');
+            cellDiv.textContent = cell;
+            cellDiv.addEventListener('click', () => makeMove(i));
+            boardDiv.appendChild(cellDiv);
+          });
+        }
+
+        function checkWinner() {
+          const wins = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+          for (let w of wins) {
+            if (board[w[0]] && board[w[0]] === board[w[1]] && board[w[0]] === board[w[2]]) {
+              return board[w[0]];
+            }
+          }
+          return board.includes('') ? null : 'draw';
+        }
+
+        function botMove() {
+          if (gameOver) return;
+          let empty = board.map((v, i) => v === '' ? i : -1).filter(i => i !== -1);
+          if (empty.length === 0) return;
+          // Проверка выигрыша бота
+          for (let i of empty) {
+            board[i] = 'O';
+            if (checkWinner() === 'O') { board[i] = 'O'; renderBoard(); return; }
+            board[i] = '';
+          }
+          // Блокировка игрока
+          for (let i of empty) {
+            board[i] = 'X';
+            if (checkWinner() === 'X') { board[i] = 'O'; renderBoard(); return; }
+            board[i] = '';
+          }
+          // Случайный ход
+          let random = empty[Math.floor(Math.random() * empty.length)];
+          board[random] = 'O';
+          renderBoard();
+        }
+
+        function makeMove(i) {
+          if (gameOver || board[i] !== '' || currentPlayer !== 'X') return;
+          board[i] = 'X';
+          renderBoard();
+          let winner = checkWinner();
+          if (winner) {
+            gameOver = true;
+            if (winner === 'X') statusDiv.textContent = loc.tttWin;
+            else if (winner === 'O') statusDiv.textContent = loc.tttLose;
+            else statusDiv.textContent = loc.tttDraw;
+            return;
+          }
+          currentPlayer = 'O';
+          statusDiv.textContent = 'Ход бота...';
+          setTimeout(() => {
+            botMove();
+            let winner = checkWinner();
+            if (winner) {
+              gameOver = true;
+              if (winner === 'X') statusDiv.textContent = loc.tttWin;
+              else if (winner === 'O') statusDiv.textContent = loc.tttLose;
+              else statusDiv.textContent = loc.tttDraw;
+            } else {
+              currentPlayer = 'X';
+              statusDiv.textContent = loc.tttTurn;
+            }
+          }, 300);
+        }
+
+        document.getElementById('tttReset').addEventListener('click', () => {
+          board = ['', '', '', '', '', '', '', '', ''];
+          currentPlayer = 'X';
+          gameOver = false;
+          statusDiv.textContent = loc.tttTurn;
+          renderBoard();
+        });
+        renderBoard();
+        break;
+
+      case 'snake':
+        body.innerHTML = `
+          <div style="text-align:center;">
+            <h3 id="snakeScore">${loc.snakeScore}0</h3>
+            <div class="snake-board" id="snakeBoard" style="grid-template-columns: repeat(15, 20px);"></div>
+            <button class="glass-btn" id="snakeRestart">${loc.snakeRestart}</button>
+          </div>
+        `;
+        const BOARD_SIZE = 15;
+        let snake = [{x:7, y:7}];
+        let food = {x:10, y:10};
+        let direction = {x:1, y:0};
+        let nextDirection = {x:1, y:0};
+        let score = 0;
+        let snakeInterval = null;
+        let snakeGameOver = false;
+
+        const snakeBoardDiv = document.getElementById('snakeBoard');
+        const scoreDiv = document.getElementById('snakeScore');
+
+        function renderSnake() {
+          snakeBoardDiv.innerHTML = '';
+          for (let y = 0; y < BOARD_SIZE; y++) {
+            for (let x = 0; x < BOARD_SIZE; x++) {
+              const cell = document.createElement('div');
+              cell.className = 'snake-cell';
+              if (snake.some(s => s.x === x && s.y === y)) {
+                cell.classList.add('snake');
+                if (snake[0].x === x && snake[0].y === y) cell.classList.add('head');
+              }
+              if (food.x === x && food.y === y) cell.classList.add('food');
+              snakeBoardDiv.appendChild(cell);
+            }
+          }
+        }
+
+        function generateFood() {
+          let free = [];
+          for (let y = 0; y < BOARD_SIZE; y++) {
+            for (let x = 0; x < BOARD_SIZE; x++) {
+              if (!snake.some(s => s.x === x && s.y === y)) free.push({x, y});
+            }
+          }
+          food = free[Math.floor(Math.random() * free.length)];
+        }
+
+        function moveSnake() {
+          if (snakeGameOver) return;
+          direction = nextDirection;
+          const head = {x: snake[0].x + direction.x, y: snake[0].y + direction.y};
+          if (head.x < 0 || head.x >= BOARD_SIZE || head.y < 0 || head.y >= BOARD_SIZE ||
+              snake.some(s => s.x === head.x && s.y === head.y)) {
+            snakeGameOver = true;
+            clearInterval(snakeInterval);
+            scoreDiv.textContent = loc.snakeGameOver + score;
+            return;
+          }
+          snake.unshift(head);
+          if (head.x === food.x && head.y === food.y) {
+            score++;
+            scoreDiv.textContent = loc.snakeScore + score;
+            generateFood();
+          } else {
+            snake.pop();
+          }
+          renderSnake();
+        }
+
+        document.getElementById('snakeRestart').addEventListener('click', () => {
+          clearInterval(snakeInterval);
+          snake = [{x:7, y:7}];
+          food = {x:10, y:10};
+          direction = {x:1, y:0};
+          nextDirection = {x:1, y:0};
+          score = 0;
+          snakeGameOver = false;
+          scoreDiv.textContent = loc.snakeScore + score;
+          renderSnake();
+          snakeInterval = setInterval(moveSnake, 150);
+        });
+
+        document.addEventListener('keydown', (e) => {
+          if (windows['snake'] && windows['snake'].style.display !== 'none') {
+            switch(e.key) {
+              case 'ArrowUp': if (direction.y !== 1) nextDirection = {x:0, y:-1}; e.preventDefault(); break;
+              case 'ArrowDown': if (direction.y !== -1) nextDirection = {x:0, y:1}; e.preventDefault(); break;
+              case 'ArrowLeft': if (direction.x !== 1) nextDirection = {x:-1, y:0}; e.preventDefault(); break;
+              case 'ArrowRight': if (direction.x !== -1) nextDirection = {x:1, y:0}; e.preventDefault(); break;
+            }
+          }
+        });
+
+        renderSnake();
+        snakeInterval = setInterval(moveSnake, 150);
+        break;
+
+      case 'gameonline':
+        body.innerHTML = `
+          <div style="position: relative; width: 100%; height: 100%;">
+            <webview id="gameWebview" class="browser-webview" style="width:100%; height:100%;" src="https://igroutka.ru/"></webview>
+            <button class="exit-fullscreen-btn" id="exitFullscreenBtn">Выйти из полного экрана</button>
+          </div>
+        `;
+
+        const gameWebview = body.querySelector('#gameWebview');
+        const exitBtn = body.querySelector('#exitFullscreenBtn');
+
+        // Показать кнопку только при входе webview в полноэкранный режим
+        gameWebview.addEventListener('enter-html-full-screen', () => {
+          exitBtn.style.display = 'block';
+        });
+
+        // Скрыть кнопку при выходе webview из полноэкранного режима
+        gameWebview.addEventListener('leave-html-full-screen', () => {
+          exitBtn.style.display = 'none';
+        });
+
+        // При клике на кнопку выходим из полноэкранного режима
+        exitBtn.addEventListener('click', () => {
+          gameWebview.executeJavaScript('document.exitFullscreen()');
+        });
+        break;
     }
+  }
+
+  // ================== Окно кастомизации ==================
+  function openCustomThemeModal() {
+    const modal = document.createElement('div');
+    modal.className = 'custom-modal';
+    modal.innerHTML = `
+      <h2>${loc.customTitle}</h2>
+      <div class="custom-row">
+        <label>${loc.wallpaperLabel}</label><br>
+        <input type="file" id="customWallpaper" accept="image/*" class="glass-input">
+        <div class="custom-preview" id="wallpaperPreview" style="background-image:url('${customThemeData?.wallpaper || ''}');"></div>
+      </div>
+      <div class="custom-row">
+        <label>${loc.colorsLabel}</label>
+        <div id="colorsContainer">
+          <input type="color" class="glass-input" value="${customThemeData?.colors?.[0] || '#ffffff'}">
+        </div>
+        <button class="glass-btn" id="addColorBtn">${loc.addColor}</button>
+      </div>
+      <div class="custom-row">
+        <label>${loc.iconsLabel} (<span id="iconsCount">${loc.iconsChanged}</span>)</label>
+        <div id="appIconsContainer">
+          ${['calc','browser','notepad','notes','settings','paint','explorer','terminal','calendar'].map((app, i) => `
+            <div style="margin-bottom:5px;">
+              <span>${loc[app] || app}</span>
+              <input type="file" class="glass-input app-icon-input" data-index="${i}" accept="image/*">
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      <div class="custom-row">
+        <label>${loc.puskLabel}</label><br>
+        <input type="file" id="customPusk" accept="image/*" class="glass-input">
+        <div class="custom-preview" id="puskPreview" style="background-image:url('${customThemeData?.puskIcon || ''}');"></div>
+      </div>
+      <div style="margin-top: 20px; text-align: right;">
+        <button class="btn-white" id="saveCustomTheme">${loc.done}</button>
+        <button class="btn-close" id="closeCustomModal">${loc.close}</button>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    makeDraggable(modal);
+
+    let newWallpaper = customThemeData?.wallpaper || null;
+    let newColors = customThemeData?.colors ? [...customThemeData.colors] : ['#ffffff'];
+    let newAppIcons = customThemeData?.appIcons ? [...customThemeData.appIcons] : new Array(9).fill(null);
+    let newPuskIcon = customThemeData?.puskIcon || null;
+    let iconsChanged = newAppIcons.filter(Boolean).length;
+    const updateIconsCount = () => {
+      document.getElementById('iconsCount').textContent = loc.iconsChanged.replace('0', iconsChanged);
+    };
+    updateIconsCount();
+
+    document.getElementById('customWallpaper').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        newWallpaper = ev.target.result;
+        document.getElementById('wallpaperPreview').style.backgroundImage = `url('${newWallpaper}')`;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    const colorsContainer = document.getElementById('colorsContainer');
+    function renderColorInputs() {
+      colorsContainer.innerHTML = newColors.map((c, i) => `
+        <input type="color" class="glass-input color-input" data-index="${i}" value="${c}">
+      `).join('');
+    }
+    renderColorInputs();
+    document.getElementById('addColorBtn').addEventListener('click', () => {
+      if (newColors.length < 3) {
+        newColors.push('#ffffff');
+        renderColorInputs();
+        addColorListeners();
+      }
+    });
+    function addColorListeners() {
+      document.querySelectorAll('.color-input').forEach(inp => {
+        inp.addEventListener('input', (e) => {
+          newColors[parseInt(e.target.dataset.index)] = e.target.value;
+        });
+      });
+    }
+    addColorListeners();
+
+    document.querySelectorAll('.app-icon-input').forEach(inp => {
+      inp.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const index = parseInt(e.target.dataset.index);
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          newAppIcons[index] = ev.target.result;
+          iconsChanged = newAppIcons.filter(Boolean).length;
+          updateIconsCount();
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+
+    document.getElementById('customPusk').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        newPuskIcon = ev.target.result;
+        document.getElementById('puskPreview').style.backgroundImage = `url('${newPuskIcon}')`;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    document.getElementById('saveCustomTheme').addEventListener('click', () => {
+      if (!newWallpaper) return alert('Выберите обои!');
+      const data = {
+        wallpaper: newWallpaper,
+        colors: newColors,
+        appIcons: newAppIcons,
+        puskIcon: newPuskIcon
+      };
+      applyCustomTheme(data);
+      const themeGrid = document.getElementById('themeGrid');
+      if (themeGrid) {
+        document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('active'));
+        document.getElementById('customThemeCard')?.classList.add('active');
+      }
+      document.body.removeChild(modal);
+    });
+    document.getElementById('closeCustomModal').addEventListener('click', () => {
+      document.body.removeChild(modal);
+    });
   }
 
   // ================== Вирусные функции ==================
@@ -1592,141 +2133,9 @@
     removeInstalledAppFromDesktop('virushorror');
   }
 
-  // ================== Окно кастомизации ==================
-  function openCustomThemeModal() {
-    const modal = document.createElement('div');
-    modal.className = 'custom-modal';
-    modal.innerHTML = `
-      <h2>${loc.customTitle}</h2>
-      <div class="custom-row">
-        <label>${loc.wallpaperLabel}</label><br>
-        <input type="file" id="customWallpaper" accept="image/*" class="glass-input">
-        <div class="custom-preview" id="wallpaperPreview" style="background-image:url('${customThemeData?.wallpaper || ''}');"></div>
-      </div>
-      <div class="custom-row">
-        <label>${loc.colorsLabel}</label>
-        <div id="colorsContainer">
-          <input type="color" class="glass-input" value="${customThemeData?.colors?.[0] || '#ffffff'}">
-        </div>
-        <button class="glass-btn" id="addColorBtn">${loc.addColor}</button>
-      </div>
-      <div class="custom-row">
-        <label>${loc.iconsLabel} (<span id="iconsCount">${loc.iconsChanged}</span>)</label>
-        <div id="appIconsContainer">
-          ${['calc','browser','notepad','notes','settings','paint','explorer','terminal','calendar'].map((app, i) => `
-            <div style="margin-bottom:5px;">
-              <span>${loc[app] || app}</span>
-              <input type="file" class="glass-input app-icon-input" data-index="${i}" accept="image/*">
-            </div>
-          `).join('')}
-        </div>
-      </div>
-      <div class="custom-row">
-        <label>${loc.puskLabel}</label><br>
-        <input type="file" id="customPusk" accept="image/*" class="glass-input">
-        <div class="custom-preview" id="puskPreview" style="background-image:url('${customThemeData?.puskIcon || ''}');"></div>
-      </div>
-      <div style="margin-top: 20px; text-align: right;">
-        <button class="btn-white" id="saveCustomTheme">${loc.done}</button>
-        <button class="btn-close" id="closeCustomModal">${loc.close}</button>
-      </div>
-    `;
-    document.body.appendChild(modal);
-
-    let newWallpaper = customThemeData?.wallpaper || null;
-    let newColors = customThemeData?.colors ? [...customThemeData.colors] : ['#ffffff'];
-    let newAppIcons = customThemeData?.appIcons ? [...customThemeData.appIcons] : new Array(9).fill(null);
-    let newPuskIcon = customThemeData?.puskIcon || null;
-    let iconsChanged = newAppIcons.filter(Boolean).length;
-    const updateIconsCount = () => {
-      document.getElementById('iconsCount').textContent = loc.iconsChanged.replace('0', iconsChanged);
-    };
-    updateIconsCount();
-
-    document.getElementById('customWallpaper').addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        newWallpaper = ev.target.result;
-        document.getElementById('wallpaperPreview').style.backgroundImage = `url('${newWallpaper}')`;
-      };
-      reader.readAsDataURL(file);
-    });
-
-    const colorsContainer = document.getElementById('colorsContainer');
-    function renderColorInputs() {
-      colorsContainer.innerHTML = newColors.map((c, i) => `
-        <input type="color" class="glass-input color-input" data-index="${i}" value="${c}">
-      `).join('');
-    }
-    renderColorInputs();
-    document.getElementById('addColorBtn').addEventListener('click', () => {
-      if (newColors.length < 3) {
-        newColors.push('#ffffff');
-        renderColorInputs();
-        addColorListeners();
-      }
-    });
-    function addColorListeners() {
-      document.querySelectorAll('.color-input').forEach(inp => {
-        inp.addEventListener('input', (e) => {
-          newColors[parseInt(e.target.dataset.index)] = e.target.value;
-        });
-      });
-    }
-    addColorListeners();
-
-    document.querySelectorAll('.app-icon-input').forEach(inp => {
-      inp.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const index = parseInt(e.target.dataset.index);
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          newAppIcons[index] = ev.target.result;
-          iconsChanged = newAppIcons.filter(Boolean).length;
-          updateIconsCount();
-        };
-        reader.readAsDataURL(file);
-      });
-    });
-
-    document.getElementById('customPusk').addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        newPuskIcon = ev.target.result;
-        document.getElementById('puskPreview').style.backgroundImage = `url('${newPuskIcon}')`;
-      };
-      reader.readAsDataURL(file);
-    });
-
-    document.getElementById('saveCustomTheme').addEventListener('click', () => {
-      if (!newWallpaper) return alert('Выберите обои!');
-      const data = {
-        wallpaper: newWallpaper,
-        colors: newColors,
-        appIcons: newAppIcons,
-        puskIcon: newPuskIcon
-      };
-      applyCustomTheme(data);
-      const themeGrid = document.getElementById('themeGrid');
-      if (themeGrid) {
-        document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('active'));
-        document.getElementById('customThemeCard')?.classList.add('active');
-      }
-      document.body.removeChild(modal);
-    });
-    document.getElementById('closeCustomModal').addEventListener('click', () => {
-      document.body.removeChild(modal);
-    });
-  }
-
   // ================== Перетаскивание и ресайз ==================
   function makeDraggable(win) {
-    const header = win.querySelector('.window-header');
+    const header = win.querySelector('.window-header') || win;
     let offsetX, offsetY, dragging = false;
     header.addEventListener('mousedown', (e) => {
       if (e.target.closest('button')) return;
@@ -1775,11 +2184,11 @@
       document.getElementById('weatherContent').textContent = loc.weatherLoading;
     }
     document.querySelectorAll('.desktop-icon .icon-label').forEach((el, i) => {
-      const labels = [loc.calc, loc.browser, loc.notepad, loc.notes, loc.settings, loc.paint, loc.explorer, loc.terminal, loc.calendar, loc.google, loc.maps, loc.itchio, loc.store];
+      const labels = [loc.calc, loc.browser, loc.notepad, loc.notes, loc.settings, loc.paint, loc.explorer, loc.terminal, loc.calendar, loc.google, loc.maps, loc.itchio, loc.store, loc.tictactoe, loc.snake, loc.gameonline];
       if (i < labels.length) el.textContent = labels[i];
     });
     document.querySelectorAll('.menu-label').forEach((el, i) => {
-      const labels = [loc.calc, loc.browser, loc.notepad, loc.notes, loc.settings, loc.paint, loc.explorer, loc.terminal, loc.calendar, loc.google, loc.maps, loc.itchio, loc.store];
+      const labels = [loc.calc, loc.browser, loc.notepad, loc.notes, loc.settings, loc.paint, loc.explorer, loc.terminal, loc.calendar, loc.google, loc.maps, loc.itchio, loc.store, loc.tictactoe, loc.snake, loc.gameonline];
       if (i < labels.length) el.textContent = labels[i];
     });
     Object.keys(windows).forEach(app => {
@@ -1792,7 +2201,8 @@
             notes: loc.notes, settings: loc.settings, paint: loc.paint,
             explorer: loc.explorer, terminal: loc.terminal, calendar: loc.calendar,
             google: loc.google, maps: loc.maps, itchio: loc.itchio, store: loc.store,
-            virushorror: loc.virusName
+            virushorror: loc.virusName, tictactoe: loc.tictactoe, snake: loc.snake,
+            gameonline: loc.gameonline
           };
           title.textContent = titles[app] || app;
         }
@@ -1836,31 +2246,33 @@
   fetchWeather();
   setInterval(fetchWeather, 30 * 60 * 1000);
 
-  // ================== Восстановление иконок при запуске ==================
+  // ================== Восстановление иконок вируса при запуске ==================
   (function restoreInstalledApps() {
     const installed = JSON.parse(localStorage.getItem('lumInstalledApps') || '[]');
+    const availableApps = [
+      { id: 'virushorror', name: loc.virusName, icon: '../icon/horrorvirusapp.jpg' }
+    ];
     installed.forEach(app => {
-      if (app.id === 'virushorror') {
-        if (!document.querySelector('.desktop-icon[data-app="virushorror"]')) {
-          const desktop = document.getElementById('desktopIcons');
-          const icon = document.createElement('div');
-          icon.className = 'desktop-icon';
-          icon.dataset.app = 'virushorror';
-          icon.innerHTML = `<div class="icon-img" style="background-image:url('../icon/horrorvirusapp.jpg'); background-size:cover;"></div><span class="icon-label">${loc.virusName}</span>`;
-          icon.addEventListener('dblclick', () => launchApp('virushorror'));
-          desktop.appendChild(icon);
+      const meta = availableApps.find(a => a.id === app.id);
+      if (meta && !document.querySelector(`.desktop-icon[data-app="${app.id}"]`)) {
+        const desktop = document.getElementById('desktopIcons');
+        const icon = document.createElement('div');
+        icon.className = 'desktop-icon';
+        icon.dataset.app = app.id;
+        icon.innerHTML = `<div class="icon-img" style="background-image:url('${meta.icon}'); background-size:cover;"></div><span class="icon-label">${meta.name}</span>`;
+        icon.addEventListener('dblclick', () => launchApp(app.id));
+        desktop.appendChild(icon);
 
-          const menu = document.getElementById('menuLeft');
-          const menuItem = document.createElement('div');
-          menuItem.className = 'app-item';
-          menuItem.dataset.app = 'virushorror';
-          menuItem.innerHTML = `<img src="../icon/horrorvirusapp.jpg" style="width:24px;height:24px;border-radius:4px;"> <span class="menu-label">${loc.virusName}</span>`;
-          menuItem.addEventListener('click', () => {
-            launchApp('virushorror');
-            if (menuOpen) toggleMenu();
-          });
-          menu.appendChild(menuItem);
-        }
+        const menu = document.getElementById('menuLeft');
+        const menuItem = document.createElement('div');
+        menuItem.className = 'app-item';
+        menuItem.dataset.app = app.id;
+        menuItem.innerHTML = `<img src="${meta.icon}" style="width:24px;height:24px;border-radius:4px;"> <span class="menu-label">${meta.name}</span>`;
+        menuItem.addEventListener('click', () => {
+          launchApp(app.id);
+          if (menuOpen) toggleMenu();
+        });
+        menu.appendChild(menuItem);
       }
     });
   })();
